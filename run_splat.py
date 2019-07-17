@@ -8,8 +8,9 @@ import numpy as np
 import urllib.request
 import zipfile
 import re
-from collections import defaultdict
+import random
 import subprocess
+from collections import defaultdict
 from splat_site import Site
 from site_manager import SiteManager
 
@@ -92,7 +93,7 @@ class RunSplat:
 
 
     def call_splat_parallel(self, num_cores=12):
-        print('Generating pathloss for all pairs of sites')
+        print('Generating pathloss for all pairs of sites in parallel')
         if os.path.exists(RunSplat.OUTPUT_DIR):
             shutil.rmtree(RunSplat.OUTPUT_DIR)
         os.mkdir(RunSplat.OUTPUT_DIR)
@@ -191,16 +192,71 @@ class RunSplat:
                 f.write(','.join(map(lambda x: str(x), value)))
 
 
-    def generate_localization_input(self, resultfile, sen_num=200):
+    def generate_localization_input(self, sen_num=200):
         '''Generate the results that the localization algo needs
         Args:
             resultfile -- str
         '''
-        if not os.path.exists(resultfile):
-            os.mkdir(resultfile)
-        results = sorted(glob.glob(resultfile+'*'))
-        latest_r = results[-1]
+        if not os.path.exists('result0'):
+            os.mkdir('result0')
+        results = sorted(glob.glob('result*'))
+        latest = results[-1]              # latest_r = result0
+        int_ = r'(\d+)'
+        pattern = r'.*\D{}'.format(int_)
+        p = re.compile(pattern)
+        m = p.match(latest)
+        if m:
+            num = int(m.group(1))           # num = 0
+        else:
+            print('no matching')
+            return
+        new_dir = 'result' + str(num+1)     # new_dir = result1
+        os.mkdir(new_dir)
+
+        # 1. select random sensors
+        random.seed(myseed)
+        sensors = random.sample(range(grid_len*grid_len), sen_num)
+        sensors = [(index2d//grid_len, index2d%grid_len, index2d) for index2d in sensors]
+        stds    = [random.uniform(0.9, 1.1) for _ in sensors]
+        with open(new_dir + '/sensors', 'w') as f:
+            for sensor, std in zip(sensors, stds):
+                f.write('{} {} {} {}\n'.format(sensor[0], sensor[1], std, 1))  # cost is constant 1
+
+        with open(new_dir + '/cov', 'w') as f:
+            cov = np.zeros((sen_num, sen_num))
+            for i in range(sen_num):
+                for j in range(sen_num):
+                    if i == j:
+                        cov[i, j] = stds[i] ** 2
+                    f.write('{} '.format(cov[i, j]))
+                f.write('\n')
         
+        with open(new_dir + '/hypothesis', 'w') as f:
+            for hypo in range(grid_len*grid_len):
+                t_x = hypo//grid_len
+                t_y = hypo%grid_len
+                hypo4 = '{:04}'.format(hypo)
+                output = np.loadtxt(RunSplat.OUTPUT_DIR + '/{}'.format(hypo4), delimiter=',')
+                means_fspl  = output[0]   # free space path loss
+                # means_itwom = output[1]   # Irregular Terrain with Obstructions Model
+                means = means_fspl
+                for i, sen in enumerate(sensors):
+                    s_x = sen[0]
+                    s_y = sen[1]
+                    s_index2d = sen[2]
+                    mean = means[s_index2d]
+                    std  = stds[i]
+                    f.write('{} {} {} {} {} {}\n'.format(t_x, t_y, s_x, s_y, mean, std))
+
+        print('data generated in', new_dir)
+        with open(new_dir + '/README', 'w') as f:
+            f.write('grid len  = {}\n'.format(grid_len))
+            f.write('ref point = {}\n'.format(ref_point))
+            f.write('cell len  = {}\n'.format(cell_len))
+            f.write('tx height = {}\n'.format(tx_height))
+            f.write('rx height = {}\n'.format(rx_height))
+            f.write('seed      = {}\n'.format(myseed))
+
 
         
 if __name__ == '__main__':
@@ -209,13 +265,33 @@ if __name__ == '__main__':
     cell_len  = 100
     tx_height = 30
     rx_height = 15
+    myseed = 0
+    
     siteman = SiteManager(grid_len, tx_height, rx_height)
-    # siteman.generate_sites(ref_point, cell_len)
-    # siteman.create_input_files(RunSplat.INPUT_DIR)
+    siteman.generate_sites(ref_point, cell_len)
+    siteman.create_input_files(RunSplat.INPUT_DIR)
 
     runsplat = RunSplat(siteman)
     # runsplat.generate_terrain_files()  # only need to run for the first time
-    # runsplat.call_splat()
     runsplat.call_splat_parallel(num_cores=11)
     runsplat.preprocess_output()
-    # runsplat.generate_localization_input('result', sen_num=200)
+    runsplat.generate_localization_input(sen_num=200)
+
+    # *************************#
+
+    grid_len  = 80
+    ref_point = (40.746000, -73.026220)
+    cell_len  = 50
+    tx_height = 30
+    rx_height = 15
+    myseed = 0
+
+    siteman = SiteManager(grid_len, tx_height, rx_height)
+    siteman.generate_sites(ref_point, cell_len)
+    siteman.create_input_files(RunSplat.INPUT_DIR)
+
+    runsplat = RunSplat(siteman)
+    # runsplat.generate_terrain_files()  # only need to run for the first time
+    runsplat.call_splat_parallel(num_cores=11)
+    runsplat.preprocess_output()
+    runsplat.generate_localization_input(sen_num=200)
