@@ -103,6 +103,7 @@ class RunSplat:
         tx_files = sorted(glob.glob('tx*.qth'))
         rx_files = sorted(glob.glob('rx*.qth'))
         for tx in tx_files:
+            print(tx)
             for rx in rx_files:
                 tx_index = tx[-8:-4]
                 rx_index = rx[-8:-4]
@@ -121,13 +122,16 @@ class RunSplat:
                     command = ['splat', '-d', RunSplat.TERRAIN_DIR, '-t', tx, '-r', virtual_file]
                 
                 p = subprocess.Popen(command, stdout=subprocess.PIPE)
-                ps.append((p, command))
+                ps.append(p)
                 
-                while len(ps) == num_cores:
-                    for p, c in ps:
-                        p.communicate()
-                        print(c)
-                    ps = []
+                while len(ps) >= num_cores:
+                    new_ps = []
+                    for p in ps:
+                        if p.poll() is not None:  # terminated
+                            pass
+                        else:                     # still running
+                            new_ps.append(p)
+                    ps = new_ps
             # break
         os.chdir(owd)
 
