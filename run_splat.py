@@ -7,6 +7,8 @@ import shutil
 import numpy as np
 import urllib.request
 import zipfile
+import re
+from collections import defaultdict
 from subprocess import call
 from splat_site import Site
 from site_manager import SiteManager
@@ -85,13 +87,78 @@ class RunSplat:
                             fl.write(Site.LRP)
                     command = ['splat', '-d', RunSplat.TERRAIN_DIR, '-t', tx, '-r', virtual_file]
                 call(command)
-            # break
+            break
         os.chdir(owd)
-        for output in glob.glob('input/tx-*-to-rx-*.txt'):
-            shutil.move(output, 'output')
-        for output in glob.glob('input/*report.txt'):
-            shutil.move(output, 'output')
 
+
+    def preprocess_output(self):
+        '''Preprocess the raw data
+        '''
+        if os.path.exists(RunSplat.OUTPUT_DIR):
+            shutil.rmtree(RunSplat.OUTPUT_DIR)
+        os.mkdir(RunSplat.OUTPUT_DIR)
+
+        for output in glob.glob(RunSplat.INPUT_DIR + '/*report.txt'):
+            os.remove(output)
+
+        pathloss1s = defaultdict(list)
+        pathloss2s = defaultdict(list)
+        for output in sorted(glob.glob(RunSplat.INPUT_DIR + '/tx-*-to-rx-*.txt')):
+            postive_float = r'(\d+\.\d+)'
+            pattern1 = r'Free space.*\D{}.*'.format(postive_float)
+            pattern2 = r'ITWOM Version 3.0.*\D{}.*'.format(postive_float)
+            p1 = re.compile(pattern1)
+            p2 = re.compile(pattern2)
+            int4 = r'(\d{4,4})'
+            pattern_file = r'.*tx-{}-to-rx.*'.format(int4)
+            pfile = re.compile(pattern_file)
+            mfile = pfile.match(output)
+            if mfile:
+                tx = mfile.group(1)
+            else:
+                continue
+            with open(output, encoding="ISO-8859-1", mode='r') as f:
+                content = f.read()
+                m1 = p1.search(content)
+                if m1:
+                    pathloss1 = m1.group(1)
+                else:
+                    print(output, 'no match')
+                m2 = p2.search(content)
+                if m2:
+                    pathloss2 = m2.group(1)
+                else:
+                    print(output, 'no match')
+
+                pathloss1s[tx].append(pathloss1)
+                pathloss2s[tx].append(pathloss2)
+
+        for output in glob.glob(RunSplat.INPUT_DIR + '/tx-*-to-rx-*.txt'):
+            os.remove(output)
+
+        for key, value in pathloss1s.items():
+            with open(RunSplat.OUTPUT_DIR+'/'+key, 'a') as f:
+                f.write(','.join(map(lambda x: str(x), value)))
+                f.write('\n')
+
+        for key, value in pathloss2s.items():
+            with open(RunSplat.OUTPUT_DIR+'/'+key, 'a') as f:
+                f.write(','.join(map(lambda x: str(x), value)))
+
+
+    def generate_localization_input(self, resultfile, sen_num=200):
+        '''Generate the results that the localization algo needs
+        Args:
+            resultfile -- str
+        '''
+        if not os.path.exists(resultfile):
+            os.mkdir(resultfile)
+        results = sorted(glob.glob(resultfile+'*'))
+        latest_r = results[-1]
+        
+
+
+        
 
 
 
@@ -102,9 +169,11 @@ if __name__ == '__main__':
     tx_height = 30
     rx_height = 15
     siteman = SiteManager(grid_len, tx_height, rx_height)
-    siteman.generate_sites(ref_point, cell_len)
-    siteman.create_input_files(RunSplat.INPUT_DIR)
+    # siteman.generate_sites(ref_point, cell_len)
+    # siteman.create_input_files(RunSplat.INPUT_DIR)
 
     runsplat = RunSplat(siteman)
     # runsplat.generate_terrain_files()  # only need to run for the first time
     runsplat.call_splat()
+    # runsplat.preprocess_output()
+    # runsplat.generate_localization_input('result', sen_num=200)

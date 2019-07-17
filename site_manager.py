@@ -41,7 +41,7 @@ class SiteManager:
                 lat = reference_point[0] + y*lat_step
                 index = x*self.grid_len + y
                 self.sites.append(Site('tx', index, lat, lon, self.tx_height, index//self.grid_len, index%self.grid_len))
-                self.sites.append(Site('rx', index, lat, lon, self.tx_height, index//self.grid_len, index%self.grid_len))
+                self.sites.append(Site('rx', index, lat, lon, self.rx_height, index//self.grid_len, index%self.grid_len))
         self.min_lat = reference_point[0]
         self.max_lat = reference_point[0] + (self.grid_len-1)*lat_step
         self.min_lon = reference_point[1]
@@ -49,7 +49,7 @@ class SiteManager:
 
 
     def generate_virtual_site(self, site):
-        '''Generate a vitual site when tx and rx are at the same location
+        '''Generate a vitual (receiver) site when tx and rx are at the same location
         Args:
             site: Site
         Return:
@@ -111,8 +111,6 @@ class SiteManager:
             elif dist < cell_len:
                 low  = mid
         return lat2 - lat, lon2 - lon
-
-
 
 
 def main1():

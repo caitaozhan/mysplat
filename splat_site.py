@@ -14,7 +14,7 @@ class Site:
           "0.90    ;   Fraction of time (90% of the time)\n"
 
 
-    def __init__(self, kind, index, lat, lon, height, x, y):
+    def __init__(self, kind, index, lat, lon, height, x=0, y=0):
         self.kind  = kind # either 'tx' or 'rx'
         self.index = index
         self.lat = lat    # lattitude  is the Y axis
@@ -25,7 +25,8 @@ class Site:
     
     def __str__(self):
         return '{}-{:04}\n{}\n{}\n{}m\n'.format(self.kind, self.index, self.lat, abs(self.lon), self.height)
-    
+
+
 if __name__ == "__main__":
     s = Site('tx', 0, 40.747034, -72.867045, 30.0)
     print(s)
