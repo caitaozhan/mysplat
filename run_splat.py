@@ -9,7 +9,7 @@ import urllib.request
 import zipfile
 import re
 from collections import defaultdict
-from subprocess import call
+import subprocess
 from splat_site import Site
 from site_manager import SiteManager
 
@@ -54,7 +54,7 @@ class RunSplat:
         owd = os.getcwd()
         os.chdir(RunSplat.TERRAIN_DIR)
         for hgt_file in glob.glob('./temp/*.hgt'):
-            call(["srtm2sdf", hgt_file])
+            subprocess.call(["srtm2sdf", hgt_file])
         os.chdir(owd)
         shutil.rmtree(terrain_temp_dir) #remove the temporary directory created at the beginning
 
@@ -86,8 +86,49 @@ class RunSplat:
                             fq.write(str(v_site))
                             fl.write(Site.LRP)
                     command = ['splat', '-d', RunSplat.TERRAIN_DIR, '-t', tx, '-r', virtual_file]
-                call(command)
-            break
+                subprocess.call(command)
+            # break
+        os.chdir(owd)
+
+
+    def call_splat_parallel(self, num_cores=12):
+        print('Generating pathloss for all pairs of sites')
+        if os.path.exists(RunSplat.OUTPUT_DIR):
+            shutil.rmtree(RunSplat.OUTPUT_DIR)
+        os.mkdir(RunSplat.OUTPUT_DIR)
+
+        owd = os.getcwd()
+        os.chdir(RunSplat.INPUT_DIR)
+        ps = []
+        tx_files = sorted(glob.glob('tx*.qth'))
+        rx_files = sorted(glob.glob('rx*.qth'))
+        for tx in tx_files:
+            for rx in rx_files:
+                tx_index = tx[-8:-4]
+                rx_index = rx[-8:-4]
+                if tx_index != rx_index:
+                    command = ['splat', '-d', RunSplat.TERRAIN_DIR, '-t', tx, '-r', rx]
+                else:
+                    virtual_file = 'v-' + rx
+                    if not os.path.exists(virtual_file):
+                        site = self.siteman.sites[(int(rx_index)+1)*2 - 1]
+                        v_site = self.siteman.generate_virtual_site(site)
+                        qthfile = 'v-{}-{:04}.qth'.format(v_site.kind, v_site.index)
+                        lrpfile = 'v-{}-{:04}.lrp'.format(v_site.kind, v_site.index)
+                        with open(qthfile, 'w') as fq, open(lrpfile, 'w') as fl:
+                            fq.write(str(v_site))
+                            fl.write(Site.LRP)
+                    command = ['splat', '-d', RunSplat.TERRAIN_DIR, '-t', tx, '-r', virtual_file]
+                
+                p = subprocess.Popen(command, stdout=subprocess.PIPE)
+                ps.append((p, command))
+                
+                while len(ps) == num_cores:
+                    for p, c in ps:
+                        p.communicate()
+                        print(c)
+                    ps = []
+            # break
         os.chdir(owd)
 
 
@@ -157,11 +198,7 @@ class RunSplat:
         latest_r = results[-1]
         
 
-
         
-
-
-
 if __name__ == '__main__':
     grid_len  = 20
     ref_point = (40.746000, -73.026220)
@@ -174,6 +211,7 @@ if __name__ == '__main__':
 
     runsplat = RunSplat(siteman)
     # runsplat.generate_terrain_files()  # only need to run for the first time
-    runsplat.call_splat()
-    # runsplat.preprocess_output()
+    # runsplat.call_splat()
+    runsplat.call_splat_parallel(num_cores=11)
+    runsplat.preprocess_output()
     # runsplat.generate_localization_input('result', sen_num=200)
