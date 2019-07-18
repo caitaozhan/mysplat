@@ -2,6 +2,7 @@
 Manage all the Sites: site generation etc.
 '''
 import os
+import random
 import shutil
 from splat_site import Site
 from mpu import haversine_distance
@@ -55,7 +56,17 @@ class SiteManager:
         Return:
             Site
         '''
-        return Site(site.kind, site.index, site.lat+self.lat_step/3, site.lon+self.lon_step/3, site.height, site.x, site.y)
+        return Site(site.kind, site.index, site.lat + self.lat_step/3, site.lon + self.lon_step/3, site.height, site.x, site.y)
+
+
+    def jitter_site(self, site):
+        '''Slightly change the location of the site. For timeout commands
+        Args:
+            site: Site
+        Return:
+            Site
+        '''
+        return Site(site.kind, site.index, site.lat + random.uniform(-1e-6, 1e-6), site.lon + random.uniform(-1e-6, 1e-6), site.height, site.x, site.y)
 
 
     def create_input_files(self, inputfile):

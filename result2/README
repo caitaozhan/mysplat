@@ -1,0 +1,6 @@
+grid len  = 5
+ref point = (40.746, -73.02622)
+cell len  = 200
+tx height = 30
+rx height = 15
+seed      = 0

@@ -28,10 +28,10 @@ class Site:
 
 
 if __name__ == "__main__":
-    s = Site('tx', 0, 40.747034, -72.867045, 30.0)
+    s = Site('tx', 0, 40.74703411, -72.86704511, 30.0)
     print(s)
-    print(Site.LRP)
+    # print(Site.LRP)
 
     s = Site('rx', 0, 40.747034, -72.867045, 30.0)
     print(s)
-    print(Site.LRP)
+    # print(Site.LRP)
