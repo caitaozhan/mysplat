@@ -5,7 +5,9 @@ import os
 import glob
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sklearn.metrics import mean_absolute_error, median_absolute_error, mean_squared_error
 from utility import distance
+
 
 
 def get_data(file):
@@ -36,9 +38,12 @@ def get_all_data(directory):
     fspl  = []
     itwom = []
     for f in files:
-        data = np.loadtxt(f, delimiter=',')
-        fspl.append(data[0])
-        itwom.append(data[1])
+        try:
+            data = np.loadtxt(f, delimiter=',')
+            fspl.append(data[0])
+            itwom.append(data[1])
+        except:
+            print(f, 'cannot np.loadtxt')
     return np.array(fspl), np.array(itwom)
 
 
@@ -97,8 +102,8 @@ def clean_itwom(itwom, fspl):
     '''itwom has strange pathloss. eg. pathloss = 0 when distance between tx and rx is small (0 ~ 200m)
        Use fspl to replace the strange fspl
     Args:
-        itwom -- np.2darray
-        fslp  -- np.2darray
+        itwom -- np.1darray
+        fslp  -- np.1darray
     '''
     if len(itwom) != len(fspl):
         print('itwom and fslp length not equal')
@@ -107,6 +112,19 @@ def clean_itwom(itwom, fspl):
     for i in range(len(itwom)):
         if itwom[i] <= 0.:
             itwom[i] = fspl[i]
+
+
+def clean_all_itwom(itwom_all, fspl_all):
+    '''
+    Args:
+        itwom -- np.2darray
+        fspl  -- np.2darray
+    Return:
+        np.2darray
+        np.2darray
+    '''
+    for itwom, fspl in zip(itwom_all, fspl_all):
+        clean_itwom(itwom, fspl)
 
 
 def interpolated_file(txfile):
@@ -196,6 +214,18 @@ def interpolate_idw(data, factor=4):
     return np.array(pass_two_data)
 
 
+def compute_error(pred, true):
+    '''
+    Args:
+        pred -- np.2darray -- the interpolated data
+        true -- np.2darray -- the true data
+    Return:
+        (float, float, float) -- mean absolute error, median absolute error, root mean square error
+    '''
+    pred = pred.flatten()
+    true = true.flatten()
+    return mean_absolute_error(true, pred), median_absolute_error(true, pred), math.sqrt(mean_squared_error(true, pred))
+
 
 if __name__ == '__main__':
     # txfile = 'output2' + '/0002'
@@ -208,10 +238,20 @@ if __name__ == '__main__':
     # txfile = 'output3' + '/0004'
     # visualize_tx(txfile)
     
-    DIR = 'output2'
-    DIR2 = 'interpolate2'
+    DIR = 'output2'        # 25 hypothesis
+    DIR2 = 'interpolate2'  # 100 hypothesis interpolated
+    DIR3 = 'output3'       # 100 hypothesis
+    
     fspl, itwom = get_all_data(DIR)
-    clean_itwom(itwom, fspl)
+    clean_all_itwom(itwom, fspl)
     fspl_inter  = interpolate_idw(fspl, factor=2)
     itwom_inter = interpolate_idw(itwom, factor=2)
+
+    fspl_true, itwom_true = get_all_data(DIR3)
+    clean_all_itwom(itwom_true, fspl_true)
+    mean, median, root = compute_error(fspl_inter, fspl_true)
+    print('FSPL:\nmean absolute error     = {}\nmedian absolute error   = {}\nroot mean squared error = {}\n\n'.format(mean, median, root))
+    
+    mean, median, root = compute_error(itwom_inter, itwom_true)
+    print('ITWOM:\nmean absolute error     = {}\nmedian absolute error   = {}\nroot mean squared error = {}'.format(mean, median, root))
     write_data(fspl_inter, itwom_inter, DIR2)
