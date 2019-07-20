@@ -2,8 +2,10 @@ import numpy as np
 import re
 import math
 import os
+import glob
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sklearn.metrics import mean_absolute_error, median_absolute_error, mean_squared_error
 from utility import distance
 
 
@@ -21,6 +23,53 @@ def get_data(txfile):
     tx = int(m.group(1))
     print(tx)
     return np.loadtxt(txfile, delimiter=',')
+
+
+def get_all_data(directory):
+    '''get all the pathloss of all the tx from all files inside a directory
+    Args:
+        directory -- str -- folder that has one transmitter to all sensor pathloss data.
+    Return:
+        np.2darray -- for fspl model,  shape = (h, h), where h is the number of hypothesis, eg. grid_len x grid_len
+        np.2darray -- for itwom model, shape = (h, h), where h is the number of hypothesis, eg. grid_len x grid_len
+    '''
+    files = sorted(glob.glob(directory + '/*'))
+    fspl  = []
+    itwom = []
+    for f in files:
+        try:
+            data = np.loadtxt(f, delimiter=',')
+            fspl.append(data[0])
+            itwom.append(data[1])
+        except:
+            print(f, 'cannot np.loadtxt')
+    return np.array(fspl), np.array(itwom)
+
+
+def write_data(fspl, itwom, filename):
+    with open(filename, 'w') as f:
+        f.write(','.join(map(lambda x: str(x), fspl)))
+        f.write('\n')
+        f.write(','.join(map(lambda x: str(x), itwom)))
+
+
+def write_all_data(fspl, itwom, directory):
+    '''write the pathloss of all tx to different files of a folder
+    Args:
+        fspl  -- np.2darray
+        itwom -- np.2darray
+        directory  -- str
+    '''
+    if not os.path.exists(directory):
+        os.mkdir(directory)
+
+    num_hypo = len(fspl)
+    if len(itwom) != num_hypo:
+        print('fspl and itwom length not equal!')
+        return
+    for i in range(num_hypo):
+        filename = directory + '/{:04}'.format(i)
+        write_data(fspl[i], itwom[i], filename)
 
 
 def visualize_tx(txfile):
@@ -62,8 +111,8 @@ def clean_itwom(itwom, fspl):
     '''itwom has strange pathloss. eg. pathloss = 0 when distance between tx and rx is small (0 ~ 200m)
        Use fspl to replace the strange fspl
     Args:
-        itwom -- np.2darray
-        fslp  -- np.2darray
+        itwom -- np.1darray
+        fslp  -- np.1darray
     '''
     if len(itwom) != len(fspl):
         print('itwom and fslp length not equal')
@@ -72,6 +121,19 @@ def clean_itwom(itwom, fspl):
     for i in range(len(itwom)):
         if itwom[i] <= 0.:
             itwom[i] = fspl[i]
+
+
+def clean_all_itwom(itwom_all, fspl_all):
+    '''
+    Args:
+        itwom -- np.2darray
+        fspl  -- np.2darray
+    Return:
+        np.2darray
+        np.2darray
+    '''
+    for itwom, fspl in zip(itwom_all, fspl_all):
+        clean_itwom(itwom, fspl)
 
 
 def interpolated_file(txfile):
@@ -94,12 +156,12 @@ def interpolated_file(txfile):
 
 
 def _interpolate_iwd(pre_inter, factor):
-    '''
+    '''Fix one transmitters, interpolate the sensors
     Args:
-        pre_inter -- np.1darray -- pre interpolated
+        pre_inter -- np.1darray -- pre interpolated, shape = gre_gl*gre_gl
         factor    -- int
     Return:
-        np.1darray
+        np.1darray -- interpolated, shape = gre_gl*gre_gl*factor*factor
     '''
     pre_gl = int(math.sqrt(len(pre_inter)))                      # previous grid length (coarse grid)
     pre_inter = pre_inter.reshape((pre_gl, pre_gl))
@@ -134,41 +196,97 @@ def _interpolate_iwd(pre_inter, factor):
     return inter.reshape(new_gl*new_gl)
 
 
-def interpolate_idw(txfile, factor=4):
-    '''Interpolate by inverse distance weight
+def interpolate_idw(data, factor=4):
+    '''Interpolate by inverse distance weight, do two pass interpolation.
     Args:
-        txfile -- str -- eg. output2/0000
+        data -- np.2darray -- either fspl or itwom, shape = (h, h), where h = grid_len * grid_len
         factor -- int
-    
+    Return:
+        np.2darray -- shape = (f^2*h, f^2*h), where f is factor
     '''
-    data = get_data(txfile)
-    inter_file = interpolated_file(txfile)
-    print(inter_file)
-    folder, _ = inter_file.split('/')
-    if not os.path.exists(folder):
-        os.mkdir(folder)
+    # pass 1
+    pre_hypo = len(data)
+    pass_one_data = []
+    for i in range(pre_hypo):
+        data_inter  = _interpolate_iwd(data[i], factor)
+        pass_one_data.append(data_inter)
+    pass_one_data = np.array(pass_one_data)     # shape = (h, f^2*h)
 
-    fspl  = data[0]
-    itwom = data[1]
-    clean_itwom(itwom, fspl)
-    fspl_inter  = _interpolate_iwd(fspl, factor)
-    itwom_inter = _interpolate_iwd(itwom, factor)
+    # pass 2
+    pass_two_data = []
+    pass_one_data = np.transpose(pass_one_data) # symmetry assumption
+    inter_hypo = len(pass_one_data)
+    for i in range(inter_hypo):
+        data_inter = _interpolate_iwd(pass_one_data[i], factor)
+        pass_two_data.append(data_inter)
 
-    f = open(inter_file, 'w')
-    f.write(','.join(map(lambda x: str(x), fspl_inter)))
-    f.write('\n')
-    f.write(','.join(map(lambda x: str(x), itwom_inter)))
-    f.close()
+    return np.array(pass_two_data)
+
+
+def compute_error(pred, true):
+    '''
+    Args:
+        pred -- np.2darray -- the interpolated data
+        true -- np.2darray -- the true data
+    Return:
+        (float, float, float) -- mean absolute error, median absolute error, root mean square error
+    '''
+    pred = pred.flatten()
+    true = true.flatten()
+    return mean_absolute_error(true, pred), median_absolute_error(true, pred), math.sqrt(mean_squared_error(true, pred))
+
+
+def main1():
+    DIR  = 'output2'       # 25 hypothesis
+    DIR2 = 'interpolate2'  # 100 hypothesis interpolated
+    DIR3 = 'output3'       # 100 hypothesis
+    fspl, itwom = get_all_data(DIR)
+    clean_all_itwom(itwom, fspl)
+    fspl_inter  = interpolate_idw(fspl, factor=2)
+    itwom_inter = interpolate_idw(itwom, factor=2)
+
+    fspl_true, itwom_true = get_all_data(DIR3)
+    clean_all_itwom(itwom_true, fspl_true)
+    mean, median, root = compute_error(fspl_inter, fspl_true)
+    print('FSPL:\nmean absolute error     = {}\nmedian absolute error   = {}\nroot mean squared error = {}\n\n'.format(mean, median, root))
+    
+    mean, median, root = compute_error(itwom_inter, itwom_true)
+    print('ITWOM:\nmean absolute error     = {}\nmedian absolute error   = {}\nroot mean squared error = {}'.format(mean, median, root))
+    write_all_data(fspl_inter, itwom_inter, DIR2)
+
+
+def main2():
+    DIR  = 'output7'       # 100 hypothesis
+    DIR2 = 'interpolate7'  # 1600 hypothesis interpolated
+    DIR3 = 'output8'       # 1600 hypothesis
+    fspl, itwom = get_all_data(DIR)
+    clean_all_itwom(itwom, fspl)
+    fspl_inter  = interpolate_idw(fspl, factor=4)
+    itwom_inter = interpolate_idw(itwom, factor=4)
+
+    fspl_true, itwom_true = get_all_data(DIR3)
+    clean_all_itwom(itwom_true, fspl_true)
+    mean, median, root = compute_error(fspl_inter, fspl_true)
+    print('FSPL:\nmean absolute error     = {}\nmedian absolute error   = {}\nroot mean squared error = {}\n\n'.format(mean, median, root))
+    
+    mean, median, root = compute_error(itwom_inter, itwom_true)
+    print('ITWOM:\nmean absolute error     = {}\nmedian absolute error   = {}\nroot mean squared error = {}'.format(mean, median, root))
+    write_all_data(fspl_inter, itwom_inter, DIR2)
+
 
 
 if __name__ == '__main__':
-    # txfile = 'output2' + '/0002'
+    
+    # main1()
+    # main2()
+
+    tx_coarse = '0035'
+    tx_fine   = '0500'
+    visualize_tx('output7/' + tx_coarse)
+    visualize_tx('interpolate7/' + tx_fine)
+    visualize_tx('output8/' + tx_fine)
+
+    
 
 
-    txfile = 'output2' + '/0002'
-    visualize_tx(txfile)
-    interpolate_idw(txfile, factor=2)
-    txfile = interpolated_file(txfile)
-    visualize_tx(txfile)
-    txfile = 'output3' + '/0004'
-    visualize_tx(txfile)
+    
