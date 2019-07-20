@@ -7,7 +7,7 @@ import seaborn as sns
 from utility import distance
 
 
-def get_data(file):
+def get_data(txfile):
     '''get the pathloss data from files
     Args:
         file -- str

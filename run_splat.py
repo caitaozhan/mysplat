@@ -288,7 +288,10 @@ class RunSplat:
                 m1 = p1.search(content)
                 if m1:
                     pathloss1 = m1.group(1)
-                    os.remove(output)                 # if exist match, then remove the file
+                    try:
+                        os.remove(output)                 # if exist match, then remove the file
+                    except:
+                        pass
                 else:
                     pathloss1 = 0.
                     print(output, 'FSPL no match')    # no match, then need to rerun.
@@ -296,7 +299,10 @@ class RunSplat:
                 m2 = p2.search(content)
                 if m2:
                     pathloss2 = m2.group(1)
-                    os.remove(output)
+                    try:
+                        os.remove(output)
+                    except:
+                        pass
                 else:
                     pathloss2 = 0.
                     print(output, 'ITWOM no match')
@@ -435,46 +441,54 @@ def transform_sensors(sensors, factor, new_grid_len):
     return new_sensors
 
 
+def fix_one_tx(filename):
+    from interpolate import get_data
+    data = get_data(filename)
+    print(data.shape)
+
 if __name__ == '__main__':
-    grid_len  = 10
-    ref_point = (40.746000, -73.026220)
-    cell_len  = 400
-    tx_height = 30
-    rx_height = 15
-    myseed = 0
+    fix_one_tx('output8/1172')
+
+
+    # grid_len  = 10
+    # ref_point = (40.762368, -73.120860)
+    # cell_len  = 400
+    # tx_height = 30
+    # rx_height = 15
+    # myseed = 0
     
-    siteman = SiteManager(grid_len, tx_height, rx_height)
-    siteman.generate_sites(ref_point, cell_len)
-    siteman.create_input_files(RunSplat.INPUT_DIR)
+    # siteman = SiteManager(grid_len, tx_height, rx_height)
+    # siteman.generate_sites(ref_point, cell_len)
+    # siteman.create_input_files(RunSplat.INPUT_DIR)
 
-    runsplat = RunSplat(siteman)
-    # runsplat.generate_terrain_files()  # only need to run for the first time
-    runsplat.call_splat_parallel(num_cores=11)
-    runsplat.rerun_timeout(num_cores=11)
-    runsplat.preprocess_output()
-    sensors = runsplat.generate_localization_input(sen_num=100, sensors=None)
+    # runsplat = RunSplat(siteman)
+    # # runsplat.generate_terrain_files()  # only need to run for the first time
+    # runsplat.call_splat_parallel(num_cores=11)
+    # runsplat.rerun_timeout(num_cores=11)
+    # runsplat.preprocess_output()
+    # sensors = runsplat.generate_localization_input(sen_num=100, sensors=None)
 
-    # ************************* #
+    # # ************************* #
 
-    previous_grid_len = grid_len
-    grid_len  = 40
-    ref_point = (40.746000, -73.026220)
-    cell_len  = 100
-    tx_height = 30
-    rx_height = 15
-    myseed = 0
-    new_sensors = transform_sensors(sensors, int(grid_len/previous_grid_len), grid_len)
+    # previous_grid_len = grid_len
+    # grid_len  = 40
+    # ref_point = (40.762368, -73.120860)
+    # cell_len  = 100
+    # tx_height = 30
+    # rx_height = 15
+    # myseed = 0
+    # new_sensors = transform_sensors(sensors, int(grid_len/previous_grid_len), grid_len)
 
-    siteman = SiteManager(grid_len, tx_height, rx_height)
-    siteman.generate_sites(ref_point, cell_len)
-    siteman.create_input_files(RunSplat.INPUT_DIR)
+    # siteman = SiteManager(grid_len, tx_height, rx_height)
+    # siteman.generate_sites(ref_point, cell_len)
+    # siteman.create_input_files(RunSplat.INPUT_DIR)
 
-    runsplat = RunSplat(siteman)
-    # runsplat.generate_terrain_files()  # only need to run for the first time
-    runsplat.call_splat_parallel(num_cores=10)
-    runsplat.rerun_timeout(num_cores=10)
-    runsplat.preprocess_output()
-    runsplat.generate_localization_input(sen_num=100, sensors=new_sensors)
+    # runsplat = RunSplat(siteman)
+    # # runsplat.generate_terrain_files()  # only need to run for the first time
+    # runsplat.call_splat_parallel(num_cores=10)
+    # runsplat.rerun_timeout(num_cores=10)
+    # runsplat.preprocess_output()
+    # runsplat.generate_localization_input(sen_num=100, sensors=new_sensors)
 
 
 
