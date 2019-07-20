@@ -284,16 +284,22 @@ class RunSplat:
                 continue
             with open(output, encoding="ISO-8859-1", mode='r') as f:
                 content = f.read()
+                
                 m1 = p1.search(content)
                 if m1:
                     pathloss1 = m1.group(1)
+                    os.remove(output)                 # if exist match, then remove the file
                 else:
-                    print(output, 'no match')
+                    pathloss1 = 0.
+                    print(output, 'FSPL no match')    # no match, then need to rerun.
+                
                 m2 = p2.search(content)
                 if m2:
                     pathloss2 = m2.group(1)
+                    os.remove(output)
                 else:
-                    print(output, 'no match')
+                    pathloss2 = 0.
+                    print(output, 'ITWOM no match')
 
                 pathloss1s[tx].append(pathloss1)
                 pathloss2s[tx].append(pathloss2)
@@ -309,8 +315,8 @@ class RunSplat:
                 print(tx, '\'s data is incomplete!')
                 self.complete = False
 
-        for output in glob.glob(RunSplat.INPUT_DIR + '/tx-*-to-rx-*.txt'):
-            os.remove(output)
+        # for output in glob.glob(RunSplat.INPUT_DIR + '/tx-*-to-rx-*.txt'):
+        #     os.remove(output)
 
         for key, value in pathloss1s.items():
             with open(RunSplat.OUTPUT_DIR_CUR +'/'+key, 'a') as f:            # the output of SPLAT!
@@ -465,8 +471,8 @@ if __name__ == '__main__':
 
     runsplat = RunSplat(siteman)
     # runsplat.generate_terrain_files()  # only need to run for the first time
-    runsplat.call_splat_parallel(num_cores=11)
-    runsplat.rerun_timeout(num_cores=11)
+    runsplat.call_splat_parallel(num_cores=10)
+    runsplat.rerun_timeout(num_cores=10)
     runsplat.preprocess_output()
     runsplat.generate_localization_input(sen_num=100, sensors=new_sensors)
 
