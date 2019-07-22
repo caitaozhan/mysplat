@@ -454,9 +454,54 @@ def fix_one_tx(filename):
 
 if __name__ == '__main__':
 
-    # grid_len  = 10
+    grid_len  = 10
+    ref_point = (40.830982, -73.226817)   # LI north
+    cell_len  = 400
+    tx_height = 30
+    rx_height = 15
+    myseed = 0
+    
+    siteman = SiteManager(grid_len, tx_height, rx_height)
+    siteman.generate_sites(ref_point, cell_len)
+    siteman.create_input_files(RunSplat.INPUT_DIR)
+
+    runsplat = RunSplat(siteman)
+    # runsplat.generate_terrain_files()  # only need to run for the first time
+    runsplat.call_splat_parallel(num_cores=11)
+    runsplat.rerun_timeout(num_cores=11)
+    runsplat.preprocess_output()
+    sensors = runsplat.generate_localization_input(sen_num=100, sensors=None)
+
+    # ************************* #
+
+    previous_grid_len = grid_len
+    grid_len  = 40
+    ref_point = (40.830982, -73.226817)
+    cell_len  = 100
+    tx_height = 30
+    rx_height = 15
+    myseed = 0
+    new_sensors = transform_sensors(sensors, int(grid_len/previous_grid_len), grid_len)
+
+    siteman = SiteManager(grid_len, tx_height, rx_height)
+    siteman.generate_sites(ref_point, cell_len)
+    siteman.create_input_files(RunSplat.INPUT_DIR)
+
+    runsplat = RunSplat(siteman)
+    # runsplat.generate_terrain_files()  # only need to run for the first time
+    runsplat.call_splat_parallel(num_cores=11)
+    runsplat.rerun_timeout(num_cores=11)
+    runsplat.preprocess_output()
+    runsplat.generate_localization_input(sen_num=100, sensors=new_sensors)
+
+
+
+    # ********************** #
+
+
+    # grid_len  = 5
     # ref_point = (40.762368, -73.120860)
-    # cell_len  = 400
+    # cell_len  = 800
     # tx_height = 30
     # rx_height = 15
     # myseed = 0
@@ -470,60 +515,14 @@ if __name__ == '__main__':
     # runsplat.call_splat_parallel(num_cores=11)
     # runsplat.rerun_timeout(num_cores=11)
     # runsplat.preprocess_output()
-    # sensors = runsplat.generate_localization_input(sen_num=100, sensors=None)
+    # sensors = runsplat.generate_localization_input(sen_num=10, sensors=None)
 
-    # # ************************* #
-
-    # previous_grid_len = grid_len
-    # grid_len  = 40
-    # ref_point = (40.762368, -73.120860)
-    # cell_len  = 100
-    # tx_height = 30
-    # rx_height = 15
-    # myseed = 0
-    # new_sensors = transform_sensors(sensors, int(grid_len/previous_grid_len), grid_len)
-
-    # siteman = SiteManager(grid_len, tx_height, rx_height)
-    # siteman.generate_sites(ref_point, cell_len)
-    # siteman.create_input_files(RunSplat.INPUT_DIR)
-
-    # runsplat = RunSplat(siteman)
-    # # runsplat.generate_terrain_files()  # only need to run for the first time
-    # runsplat.call_splat_parallel(num_cores=10)
-    # runsplat.rerun_timeout(num_cores=10)
-    # runsplat.preprocess_output()
-
-    # runsplat.generate_localization_input(sen_num=100, sensors=new_sensors)
-
-
-
-    # ********************** #
-
-
-    grid_len  = 5
-    ref_point = (40.762368, -73.120860)
-    cell_len  = 200
-    tx_height = 30
-    rx_height = 15
-    myseed = 0
-    
-    siteman = SiteManager(grid_len, tx_height, rx_height)
-    siteman.generate_sites(ref_point, cell_len)
-    siteman.create_input_files(RunSplat.INPUT_DIR)
-
-    runsplat = RunSplat(siteman)
-    # runsplat.generate_terrain_files()  # only need to run for the first time
-    runsplat.call_splat_parallel(num_cores=10)
-    runsplat.rerun_timeout(num_cores=10)
-    runsplat.preprocess_output()
-    sensors = runsplat.generate_localization_input(sen_num=10, sensors=None)
-
-    # # ************************* #
+    # # # ************************* #
 
     # previous_grid_len = grid_len
-    # grid_len  = 10
+    # grid_len  = 20
     # ref_point = (40.762368, -73.120860)
-    # cell_len  = 100
+    # cell_len  = 200
     # tx_height = 30
     # rx_height = 15
     # myseed = 0

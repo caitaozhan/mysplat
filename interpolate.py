@@ -9,6 +9,9 @@ from sklearn.metrics import mean_absolute_error, median_absolute_error, mean_squ
 from utility import distance
 
 
+NEIGHBOR_NUM = 9
+
+
 def get_data(txfile):
     '''get the pathloss data from files
     Args:
@@ -180,7 +183,7 @@ def _interpolate_iwd(pre_inter, factor):
                         if pre_x >= 0 and pre_x < pre_gl and pre_y >= 0 and pre_y < pre_gl:
                             points.append((pre_x, pre_y, distance((v_x, v_y), (pre_x, pre_y))))
                 points = sorted(points, key=lambda tup: tup[2])           # sort by distance
-                threshold = min(9, len(points))
+                threshold = min(NEIGHBOR_NUM, len(points))
                 weights = np.zeros(threshold)
                 for i in range(threshold):
                     point = points[i]                             # inverse weighted distance
@@ -212,9 +215,9 @@ def interpolate_idw(data, factor=4):
         pass_one_data.append(data_inter)
     pass_one_data = np.array(pass_one_data)     # shape = (h, f^2*h)
 
+    pass_one_data = np.transpose(pass_one_data) # symmetry assumption
     # pass 2
     pass_two_data = []
-    pass_one_data = np.transpose(pass_one_data) # symmetry assumption
     inter_hypo = len(pass_one_data)
     for i in range(inter_hypo):
         data_inter = _interpolate_iwd(pass_one_data[i], factor)
@@ -234,6 +237,12 @@ def compute_error(pred, true):
     pred = pred.flatten()
     true = true.flatten()
     return mean_absolute_error(true, pred), median_absolute_error(true, pred), math.sqrt(mean_squared_error(true, pred))
+
+
+def write_readme(directory):
+    with open(directory + '/README.txt', 'w') as f:
+        f.write('neighbor number = {}\n'.format(NEIGHBOR_NUM))
+        print('neighbor number = {}\n'.format(NEIGHBOR_NUM))
 
 
 def main1():
@@ -272,19 +281,60 @@ def main2():
     mean, median, root = compute_error(itwom_inter, itwom_true)
     print('ITWOM:\nmean absolute error     = {}\nmedian absolute error   = {}\nroot mean squared error = {}'.format(mean, median, root))
     write_all_data(fspl_inter, itwom_inter, DIR2)
+    write_readme(DIR2)
+
+
+def main3():
+    DIR  = 'output9'       # 25 hypothesis
+    DIR2 = 'interpolate9'  # 1600 hypothesis interpolated
+    DIR3 = 'output8'       # 1600 hypothesis
+    fspl, itwom = get_all_data(DIR)
+    clean_all_itwom(itwom, fspl)
+    fspl_inter  = interpolate_idw(fspl, factor=8)
+    itwom_inter = interpolate_idw(itwom, factor=8)
+
+    fspl_true, itwom_true = get_all_data(DIR3)
+    clean_all_itwom(itwom_true, fspl_true)
+    mean, median, root = compute_error(fspl_inter, fspl_true)
+    print('FSPL:\nmean absolute error     = {}\nmedian absolute error   = {}\nroot mean squared error = {}\n\n'.format(mean, median, root))
+    
+    mean, median, root = compute_error(itwom_inter, itwom_true)
+    print('ITWOM:\nmean absolute error     = {}\nmedian absolute error   = {}\nroot mean squared error = {}'.format(mean, median, root))
+    write_all_data(fspl_inter, itwom_inter, DIR2)
+
+
+def main4():
+    DIR  = 'output10'       # 400 hypothesis
+    DIR2 = 'interpolate10'  # 1600 hypothesis interpolated
+    DIR3 = 'output8'        # 1600 hypothesis
+    fspl, itwom = get_all_data(DIR)
+    clean_all_itwom(itwom, fspl)
+    fspl_inter  = interpolate_idw(fspl, factor=2)
+    itwom_inter = interpolate_idw(itwom, factor=2)
+
+    fspl_true, itwom_true = get_all_data(DIR3)
+    clean_all_itwom(itwom_true, fspl_true)
+    mean, median, root = compute_error(fspl_inter, fspl_true)
+    print('FSPL:\nmean absolute error     = {}\nmedian absolute error   = {}\nroot mean squared error = {}\n\n'.format(mean, median, root))
+    
+    mean, median, root = compute_error(itwom_inter, itwom_true)
+    print('ITWOM:\nmean absolute error     = {}\nmedian absolute error   = {}\nroot mean squared error = {}'.format(mean, median, root))
+    write_all_data(fspl_inter, itwom_inter, DIR2)
 
 
 
 if __name__ == '__main__':
     
     # main1()
-    # main2()
+    main2()
+    # main3()
+    # main4()
 
-    tx_coarse = '0035'
-    tx_fine   = '0500'
-    visualize_tx('output7/' + tx_coarse)
-    visualize_tx('interpolate7/' + tx_fine)
-    visualize_tx('output8/' + tx_fine)
+    # tx_coarse = '0035'
+    # tx_fine   = '0500'
+    # visualize_tx('output7/' + tx_coarse)
+    # visualize_tx('interpolate7/' + tx_fine)
+    # visualize_tx('output8/' + tx_fine)
 
     
 
