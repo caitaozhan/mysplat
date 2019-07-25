@@ -1,4 +1,4 @@
-Long island south shore:  (40.762368, -73.120860)
-Long island north shore:  (40.830982, -73.226817)
-Bear Mountain State Park: (41.280293, -74.013744)
+Long island south shore:  (40.762368, -73.120860)  -- 7, 8, 9, 10
+Long island north shore:  (40.830982, -73.226817)  -- 11, 12
+Bear Mountain State Park: (41.280293, -74.013744)  -- 13, 14
 Comparing the extent of irregularity, Bear > north shore > south shore

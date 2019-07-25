@@ -6,10 +6,10 @@ import glob
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import mean_absolute_error, median_absolute_error, mean_squared_error
-from utility import distance
+from utility import distance, weighted_error
 
 
-NEIGHBOR_NUM = 9
+NEIGHBOR_NUM = 4
 
 
 def get_data(txfile):
@@ -107,7 +107,9 @@ def visualize_tx(txfile):
     ax1.set_title(txfile + ' - fspl', fontsize=16)
     sns.heatmap(grid2, square=True, ax=ax2)
     ax2.set_title(txfile + ' - itwom', fontsize=16)
-    f.savefig(txfile + '.png')
+    path = txfile + '.png'
+    path = 'visualize/' + path.replace('/', '-')
+    f.savefig(path)
 
 
 def clean_itwom(itwom, fspl):
@@ -175,7 +177,7 @@ def _interpolate_iwd(pre_inter, factor):
             if new_x%factor == 0 and new_y%factor == 0:                  # don't need to interpolate
                 inter[new_x][new_y] = pre_inter[new_x//factor][new_y//factor]
             else:
-                v_x, v_y = float(new_x)/factor, float(new_y)/factor  # virtual point in the coarse grid
+                v_x, v_y = float(new_x)/factor, float(new_y)/factor  # virtual point in the coarse grid / real point in the fine grid
                 # pick some close points from the coarse grid
                 points = []
                 for pre_x in range(math.floor(v_x - 1), math.ceil(v_x + 1) + 1):
@@ -237,6 +239,17 @@ def compute_error(pred, true):
     pred = pred.flatten()
     true = true.flatten()
     return mean_absolute_error(true, pred), median_absolute_error(true, pred), math.sqrt(mean_squared_error(true, pred))
+
+
+def compute_weighted_error(pred, true):
+    '''
+    Args:
+        pred -- np.2darray -- the interpolated data
+        true -- np.2darray -- the true data
+    Return:
+        (float, float, float) -- mean absolute error, median absolute error, root mean square error
+    '''
+    return weighted_error(pred, true)
 
 
 def write_readme(directory):
@@ -322,16 +335,69 @@ def main4():
     write_all_data(fspl_inter, itwom_inter, DIR2)
 
 
+def main5():
+    DIR  = 'output11'        # 100 hypothesis
+    DIR2 = 'interpolate11'   # 1600 hypothesis interpolated
+    DIR3 = 'output12'        # 1600 hypothesis
+    fspl, itwom = get_all_data(DIR)
+    clean_all_itwom(itwom, fspl)
+    fspl_inter  = interpolate_idw(fspl, factor=4)
+    itwom_inter = interpolate_idw(itwom, factor=4)
+
+    fspl_true, itwom_true = get_all_data(DIR3)
+    clean_all_itwom(itwom_true, fspl_true)
+    mean, median, root = compute_error(fspl_inter, fspl_true)
+    print('FSPL:\nmean absolute error     = {}\nmedian absolute error   = {}\nroot mean squared error = {}\n\n'.format(mean, median, root))
+    
+    mean, median, root = compute_error(itwom_inter, itwom_true)
+    print('ITWOM:\nmean absolute error     = {}\nmedian absolute error   = {}\nroot mean squared error = {}'.format(mean, median, root))
+    write_all_data(fspl_inter, itwom_inter, DIR2)
+
+
+def main6():
+    DIR  = 'output13'       # 100 hypothesis
+    DIR2 = 'interpolate13'  # 1600 hypothesis interpolated
+    DIR3 = 'output14'        # 1600 hypothesis
+    fspl, itwom = get_all_data(DIR)
+    clean_all_itwom(itwom, fspl)
+    fspl_inter  = interpolate_idw(fspl, factor=4)
+    itwom_inter = interpolate_idw(itwom, factor=4)
+
+    fspl_true, itwom_true = get_all_data(DIR3)
+    clean_all_itwom(itwom_true, fspl_true)
+    mean, median, root = compute_error(fspl_inter, fspl_true)
+    print('FSPL:\nmean absolute error     = {}\nmedian absolute error   = {}\nroot mean squared error = {}\n'.format(mean, median, root))
+    
+    mean, median, root = compute_error(itwom_inter, itwom_true)
+    print('ITWOM:\nmean absolute error     = {}\nmedian absolute error   = {}\nroot mean squared error = {}\n\n'.format(mean, median, root))
+    write_all_data(fspl_inter, itwom_inter, DIR2)
+
+
+def main7():
+    '''Weighted Error
+    '''
+    # DIR  = 'output7'       # 100 hypothesis
+    DIR2 = 'interpolate7'  # 1600 hypothesis interpolated
+    DIR3 = 'output8'       # 1600 hypothesis
+    _, itwom_inter = get_all_data(DIR2)
+    fspl_true, itwom_true   = get_all_data(DIR3)
+    clean_all_itwom(itwom_true, fspl_true)
+    mean, abso = weighted_error(itwom_inter, itwom_true)
+    print('mean = {}; median = {}'.format(mean, abso))
+
 
 if __name__ == '__main__':
     
     # main1()
-    main2()
+    # main2()
     # main3()
     # main4()
+    # main5()
+    # main6()
+    main7()
 
-    # tx_coarse = '0035'
-    # tx_fine   = '0500'
+    # tx_coarse = '0099'
+    # tx_fine   = '0788'
     # visualize_tx('output7/' + tx_coarse)
     # visualize_tx('interpolate7/' + tx_fine)
     # visualize_tx('output8/' + tx_fine)

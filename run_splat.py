@@ -14,6 +14,7 @@ import subprocess
 from collections import defaultdict
 from splat_site import Site
 from site_manager import SiteManager
+from interpolate import clean_itwom
 
 
 class RunSplat:
@@ -313,11 +314,11 @@ class RunSplat:
 
         # check whether each tx has pathloss to all rx
         for tx, pl in pathloss1s.items():
-            if len(pl) != grid_len*grid_len:
+            if len(pl) != self.siteman.grid_len*self.siteman.grid_len:
                 print(tx, '\'s data is incomplete!')
                 self.complete = False
         for tx, pl in pathloss2s.items():
-            if len(pl) != grid_len*grid_len:
+            if len(pl) != self.siteman.grid_len*self.siteman.grid_len:
                 print(tx, '\'s data is incomplete!')
                 self.complete = False
 
@@ -357,7 +358,7 @@ class RunSplat:
         return new_dir
 
 
-    def generate_localization_input(self, sen_num=200, sensors=None):
+    def generate_localization_input(self, sen_num=200, sensors=None, myseed=0, model='itwom', power=30, interpolate=True):
         '''Generate the results that the localization algo needs
         Args:
             resultfile -- str
@@ -375,8 +376,8 @@ class RunSplat:
         # 1. sensors: randomly create them or from the paramaters
         random.seed(myseed)
         if sensors is None:
-            sensors = random.sample(range(grid_len*grid_len), sen_num)
-            sensors = [(index2d//grid_len, index2d%grid_len, index2d) for index2d in sensors]
+            sensors = random.sample(range(self.siteman.grid_len*self.siteman.grid_len), sen_num)
+            sensors = [(index2d//self.siteman.grid_len, index2d%self.siteman.grid_len, index2d) for index2d in sensors]
         else:
             sen_num = len(sensors)
         random.seed(myseed)
@@ -397,14 +398,17 @@ class RunSplat:
         
         # 3. hypothesis file
         with open(new_dir + '/hypothesis', 'w') as f:
-            for hypo in range(grid_len*grid_len):
-                t_x = hypo//grid_len
-                t_y = hypo%grid_len
+            for hypo in range(self.siteman.grid_len*self.siteman.grid_len):
+                t_x = hypo//self.siteman.grid_len
+                t_y = hypo%self.siteman.grid_len
                 hypo4 = '{:04}'.format(hypo)
                 output = np.loadtxt(RunSplat.OUTPUT_DIR_CUR + '/{}'.format(hypo4), delimiter=',')
-                means_fspl  = output[0]   # free space path loss
-                # means_itwom = output[1]   # Irregular Terrain with Obstructions Model
-                means = means_fspl
+                fspl, itwom = output[0], output[1]
+                if model == 'itwom':
+                    clean_itwom(itwom, fspl)
+                    means = power - itwom     # irregular terrain with obstruction model
+                else:
+                    means = power - fspl      # free space path loss
                 for i, sen in enumerate(sensors):
                     s_x = sen[0]
                     s_y = sen[1]
@@ -413,15 +417,19 @@ class RunSplat:
                     std  = stds[i]
                     f.write('{} {} {} {} {} {}\n'.format(t_x, t_y, s_x, s_y, mean, std))
 
-        print('data generated in', new_dir)
+        # 4. README file
         with open(new_dir + '/README', 'w') as f:
-            f.write('grid len  = {}\n'.format(grid_len))
-            f.write('ref point = {}\n'.format(ref_point))
-            f.write('cell len  = {}\n'.format(cell_len))
-            f.write('tx height = {}\n'.format(tx_height))
-            f.write('rx height = {}\n'.format(rx_height))
+            f.write('grid len  = {}\n'.format(self.siteman.grid_len))
+            f.write('sen num   = {}\n'.format(sen_num))
+            f.write('interpola = {}\n'.format(interpolate))
+            f.write('model     = {}\n'.format(model))
+            f.write('ref point = {}\n'.format(self.siteman.ref_point))
+            f.write('cell len  = {}\n'.format(self.siteman.cell_len))
+            f.write('tx height = {}\n'.format(self.siteman.tx_height))
+            f.write('rx height = {}\n'.format(self.siteman.rx_height))
             f.write('seed      = {}\n'.format(myseed))
-        
+
+        print('data generated in', new_dir)
         return sensors
 
 
@@ -452,48 +460,68 @@ def fix_one_tx(filename):
     write_data(fspl, itwom, filename)
 
 
-if __name__ == '__main__':
-
-    grid_len  = 10
-    ref_point = (40.830982, -73.226817)   # LI north
-    cell_len  = 400
-    tx_height = 30
-    rx_height = 15
-    myseed = 0
-    
-    siteman = SiteManager(grid_len, tx_height, rx_height)
-    siteman.generate_sites(ref_point, cell_len)
-    siteman.create_input_files(RunSplat.INPUT_DIR)
-
-    runsplat = RunSplat(siteman)
-    # runsplat.generate_terrain_files()  # only need to run for the first time
-    runsplat.call_splat_parallel(num_cores=11)
-    runsplat.rerun_timeout(num_cores=11)
-    runsplat.preprocess_output()
-    sensors = runsplat.generate_localization_input(sen_num=100, sensors=None)
-
-    # ************************* #
-
-    previous_grid_len = grid_len
+def main1():
+    '''Generate the localization input
+    '''
     grid_len  = 40
-    ref_point = (40.830982, -73.226817)
+    ref_point = (40.762368, -73.120860)   # Bohemia, NY
     cell_len  = 100
     tx_height = 30
     rx_height = 15
-    myseed = 0
-    new_sensors = transform_sensors(sensors, int(grid_len/previous_grid_len), grid_len)
-
+    myseed    = 0
+    
     siteman = SiteManager(grid_len, tx_height, rx_height)
-    siteman.generate_sites(ref_point, cell_len)
-    siteman.create_input_files(RunSplat.INPUT_DIR)
-
+    setattr(siteman, 'ref_point', ref_point)
+    setattr(siteman, 'cell_len', cell_len)
     runsplat = RunSplat(siteman)
-    # runsplat.generate_terrain_files()  # only need to run for the first time
-    runsplat.call_splat_parallel(num_cores=11)
-    runsplat.rerun_timeout(num_cores=11)
-    runsplat.preprocess_output()
-    runsplat.generate_localization_input(sen_num=100, sensors=new_sensors)
+    setattr(RunSplat, 'OUTPUT_DIR_CUR', 'interpolate7')
+    runsplat.generate_localization_input(sen_num=200, sensors=None, myseed=myseed, interpolate=True)
 
+
+
+if __name__ == '__main__':
+
+    main1()
+
+    # grid_len  = 10
+    # ref_point = (41.280293, -74.013744)   # Bear Mountain
+    # cell_len  = 400
+    # tx_height = 30
+    # rx_height = 15
+    # myseed = 0
+    
+    # siteman = SiteManager(grid_len, tx_height, rx_height)
+    # siteman.generate_sites(ref_point, cell_len)
+    # siteman.create_input_files(RunSplat.INPUT_DIR)
+
+    # runsplat = RunSplat(siteman)
+    # # runsplat.generate_terrain_files()  # only need to run for the first time
+    # runsplat.call_splat_parallel(num_cores=11)
+    # runsplat.rerun_timeout(num_cores=11)
+    # runsplat.preprocess_output()
+    # sensors = runsplat.generate_localization_input(sen_num=100, sensors=None, myseed=myseed)
+
+    # # ************************* #
+
+    # previous_grid_len = grid_len
+    # grid_len  = 40
+    # ref_point = (41.280293, -74.013744)   # Bear Mountain
+    # cell_len  = 100
+    # tx_height = 30
+    # rx_height = 15
+    # myseed = 0
+    # new_sensors = transform_sensors(sensors, int(grid_len/previous_grid_len), grid_len)
+
+    # siteman = SiteManager(grid_len, tx_height, rx_height)
+    # siteman.generate_sites(ref_point, cell_len)
+    # siteman.create_input_files(RunSplat.INPUT_DIR)
+
+    # runsplat = RunSplat(siteman)
+    # # runsplat.generate_terrain_files()  # only need to run for the first time
+    # runsplat.call_splat_parallel(num_cores=11)
+    # runsplat.rerun_timeout(num_cores=11)
+    # runsplat.preprocess_output()
+    # runsplat.generate_localization_input(sen_num=100, sensors=new_sensors, myseed=myseed)
 
 
     # ********************** #
@@ -515,7 +543,7 @@ if __name__ == '__main__':
     # runsplat.call_splat_parallel(num_cores=11)
     # runsplat.rerun_timeout(num_cores=11)
     # runsplat.preprocess_output()
-    # sensors = runsplat.generate_localization_input(sen_num=10, sensors=None)
+    # sensors = runsplat.generate_localization_input(sen_num=10, sensors=None, myseed=myseed)
 
     # # # ************************* #
 
@@ -537,4 +565,4 @@ if __name__ == '__main__':
     # runsplat.call_splat_parallel(num_cores=10)
     # runsplat.rerun_timeout(num_cores=10)
     # runsplat.preprocess_output()
-    # runsplat.generate_localization_input(sen_num=10, sensors=new_sensors)
+    # runsplat.generate_localization_input(sen_num=10, sensors=new_sensors, myseed=myseed)

@@ -30,9 +30,12 @@ class SiteManager:
             cell_len        int -- meters
         '''
         print('reference point = {}, cell length = {} m'.format(reference_point, cell_len))
+        self.ref_point = reference_point
+        self.cell_len = cell_len
         lat_step, lon_step = SiteManager.find_step(reference_point, cell_len)
         self.lat_step = lat_step
         self.lon_step = lon_step
+        self.lat0, self.lon0 = SiteManager.find_step(reference_point, 50)    # when Rx and Tx are at the same location, move it to 50 meters apart
         print('lat step = {}, lon step = {}'.format(lat_step, lon_step))
         print('start creating sites')
         self.sites = []
@@ -56,7 +59,7 @@ class SiteManager:
         Return:
             Site
         '''
-        return Site(site.kind, site.index, site.lat + self.lat_step/3, site.lon + self.lon_step/3, site.height, site.x, site.y)
+        return Site(site.kind, site.index, site.lat + self.lat0, site.lon + self.lon0, site.height, site.x, site.y)
 
 
     def jitter_site(self, site):
