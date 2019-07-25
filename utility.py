@@ -32,8 +32,9 @@ def weighted_error(pred, true):
             tx = (i//grid_len, i%grid_len)
             rx = (j//grid_len, i%grid_len)
             dist  = distance(tx, rx)
-            if dist <= 3:
+            if dist <= 5:
                 errors.append(abs(error))
+            # errors.append(abs(error))
     errors = np.array(errors)
     print('length of errors', len(errors))
     half = int(len(errors)/2)

@@ -163,7 +163,7 @@ def interpolated_file(txfile):
 def _interpolate_iwd(pre_inter, factor):
     '''Fix one transmitters, interpolate the sensors
     Args:
-        pre_inter -- np.1darray -- pre interpolated, shape = gre_gl*gre_gl
+        pre_inter -- np.1darray -- pre interpolated, shape = pre_gl*pre_gl
         factor    -- int
     Return:
         np.1darray -- interpolated, shape = gre_gl*gre_gl*factor*factor
@@ -188,10 +188,10 @@ def _interpolate_iwd(pre_inter, factor):
                 threshold = min(NEIGHBOR_NUM, len(points))
                 weights = np.zeros(threshold)
                 for i in range(threshold):
-                    point = points[i]                             # inverse weighted distance
+                    point = points[i]
                     dist = distance((v_x, v_y), point)
-                    weights[i] = 1./dist                          # normalize them
-                weights /= np.sum(weights)
+                    weights[i] = (1./dist)**2                     # inverse weighted distance or inverse weighted square
+                weights /= np.sum(weights)                        # normalize them
                 idw = 0
                 for i in range(threshold):
                     w = weights[i]
@@ -389,12 +389,12 @@ def main7():
 if __name__ == '__main__':
     
     # main1()
-    # main2()
+    main2()
     # main3()
     # main4()
     # main5()
     # main6()
-    main7()
+    # main7()
 
     # tx_coarse = '0099'
     # tx_fine   = '0788'

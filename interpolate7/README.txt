@@ -1,1 +1,0 @@
-neighbor number = 9
