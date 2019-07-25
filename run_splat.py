@@ -15,6 +15,7 @@ from collections import defaultdict
 from splat_site import Site
 from site_manager import SiteManager
 from interpolate import clean_itwom
+from interpolate import get_data, get_all_data, write_data
 
 
 class RunSplat:
@@ -122,7 +123,7 @@ class RunSplat:
                     if not os.path.exists(virtual_file):
                         site = self.siteman.sites[(int(rx_index)+1)*2 - 1]
                         v_site = self.siteman.generate_virtual_site(site)
-                        qthfile = 'v-{}-{:04}.qth'.format(v_site.kind, v_site.index)
+                        qthfile = 'v-{}-{:04}.qth'.format(v_site.kind, v_site.index)   # the same as virtual_file
                         lrpfile = 'v-{}-{:04}.lrp'.format(v_site.kind, v_site.index)
                         with open(qthfile, 'w') as fq, open(lrpfile, 'w') as fl:
                             fq.write(str(v_site))
@@ -199,10 +200,11 @@ class RunSplat:
         os.chdir(RunSplat.INPUT_DIR)
         for rx in rxs:
             rx_site = self.siteman.sites[(int(rx) + 1)*2 - 1]
-            rx_site = self.siteman.jitter_site(rx_site)
+            rx_site = self.siteman.jitter_site(rx_site)        # jitter the receiver
+            self.siteman.sites[(int(rx) + 1)*2 - 1] = rx_site  # update the receiver
             qthfile = '{}-{:04}.qth'.format(rx_site.kind, rx_site.index)
             with open(qthfile, 'w') as f:
-                f.write(str(rx_site))
+                f.write(str(rx_site))                          # rewrite the receiver
         
         ps = []
         for command in commands:
@@ -210,16 +212,14 @@ class RunSplat:
             tx_index = command[4][-8:-4]
             rx_index = command[6][-8:-4]
             if tx_index == rx_index:
-                virtual_file = 'v-' + command[6]
-                if not os.path.exists(virtual_file):
-                    site = self.siteman.sites[(int(rx_index) + 1)*2 - 1]
-                    v_site = self.siteman.generate_virtual_site(site)
-                    qthfile = 'v-{}-{:04}.qth'.format(v_site.kind, v_site.index)
-                    lrpfile = 'v-{}-{:04}.lrp'.format(v_site.kind, v_site.index)
-                    with open(qthfile, 'w') as fq, open(lrpfile, 'w') as fl:
-                        fq.write(str(v_site))
-                        fl.write(Site.LRP)
-                command = ['splat', '-d', '../' + RunSplat.TERRAIN_DIR, '-t', command[4], '-r', virtual_file]
+                site = self.siteman.sites[(int(rx_index) + 1)*2 - 1]
+                v_site = self.siteman.generate_virtual_site(site)
+                qthfile = 'v-{}-{:04}.qth'.format(v_site.kind, v_site.index)
+                lrpfile = 'v-{}-{:04}.lrp'.format(v_site.kind, v_site.index)
+                with open(qthfile, 'w') as fq, open(lrpfile, 'w') as fl:
+                    fq.write(str(v_site))
+                    fl.write(Site.LRP)
+                command = ['splat', '-d', '../' + RunSplat.TERRAIN_DIR, '-t', command[4], '-r', qthfile]
             
             p = subprocess.Popen(command, stdout=subprocess.PIPE)
             ps.append((p, command, time.time()))
@@ -449,14 +449,20 @@ def transform_sensors(sensors, factor, new_grid_len):
     return new_sensors
 
 
-def fix_one_tx(filename):
-    from interpolate import get_data, write_data
+def fix_one_tx(directory, tx, fspl_fix, itwom_fix):
+    '''
+    Args:
+        directory -- str -- eg. 'output7'
+        tx        -- str -- eg. '0001'
+        fspl_fix  -- float -- the correct value
+        itwom_fix -- float -- the correct value
+    '''
+    filename = directory + '/' + tx
+    rx = int(tx)                        # tx and rx is at the same location
     data = get_data(filename)
-    fspl, itwom = data[0], data[1]
-    print(fspl.shape, itwom.shape)
-    # fspl = np.insert(fspl, 1172, 64)
-    # itwom = np.insert(itwom, 1172, 0)
-    # print(fspl.shape, itwom.shape)
+    fspl, itwom  = data[0], data[1]
+    fspl[rx]  = fspl_fix
+    itwom[rx] = itwom_fix
     write_data(fspl, itwom, filename)
 
 
@@ -479,90 +485,79 @@ def main1():
 
 
 
+def main2(ref_point):
+    '''Run the coarse and fine training
+    Args:
+        ref_point -- (float, float) -- the left down origin point
+    '''
+    grid_len  = 10
+    cell_len  = 400
+    tx_height = 30
+    rx_height = 15
+    myseed = 0
+    
+    siteman = SiteManager(grid_len, tx_height, rx_height)
+    setattr(siteman, 'ref_point', ref_point)
+    setattr(siteman, 'cell_len', cell_len)
+    siteman.generate_sites(ref_point, cell_len)
+    siteman.create_input_files(RunSplat.INPUT_DIR)
+
+    runsplat = RunSplat(siteman)
+    # runsplat.generate_terrain_files()  # only need to run for the first time
+    runsplat.call_splat_parallel(num_cores=11)
+    runsplat.rerun_timeout(num_cores=11)
+    runsplat.preprocess_output()
+    sensors = runsplat.generate_localization_input(sen_num=100, sensors=None, myseed=myseed)
+
+    # ************************* #
+
+    previous_grid_len = grid_len
+    grid_len  = 40
+    cell_len  = 100
+    tx_height = 30
+    rx_height = 15
+    myseed = 0
+    new_sensors = transform_sensors(sensors, int(grid_len/previous_grid_len), grid_len)
+
+    siteman = SiteManager(grid_len, tx_height, rx_height)
+    siteman.generate_sites(ref_point, cell_len)
+    siteman.create_input_files(RunSplat.INPUT_DIR)
+
+    runsplat = RunSplat(siteman)
+    # runsplat.generate_terrain_files()  # only need to run for the first time
+    runsplat.call_splat_parallel(num_cores=11)
+    runsplat.rerun_timeout(num_cores=11)
+    runsplat.preprocess_output()
+    runsplat.generate_localization_input(sen_num=100, sensors=new_sensors, myseed=myseed)
+
+
+
+def main3():
+    '''fix tx
+    '''
+    original_dir_10 = 'output7'
+    original_dir_40 = 'output8'
+    fix_dir_10      = 'output15'
+    fix_dir_40      = 'output16'
+    fspl10_fix, itwom10_fix = get_all_data(fix_dir_10)
+    fspl40_fix, itwom40_fix = get_all_data(fix_dir_40)
+    size = len(fspl10_fix)
+    for i in range(size):
+        tx = '{:04}'.format(i)
+        fix_one_tx(original_dir_10, tx, fspl10_fix[i], itwom10_fix[i])
+    size = len(fspl40_fix)
+    for i in range(size):
+        tx = '{:04}'.format(i)
+        fix_one_tx(original_dir_40, tx, fspl40_fix[i], itwom40_fix[i])
+
+
+
 if __name__ == '__main__':
 
-    main1()
+    # main1()
 
-    # grid_len  = 10
-    # ref_point = (41.280293, -74.013744)   # Bear Mountain
-    # cell_len  = 400
-    # tx_height = 30
-    # rx_height = 15
-    # myseed = 0
-    
-    # siteman = SiteManager(grid_len, tx_height, rx_height)
-    # siteman.generate_sites(ref_point, cell_len)
-    # siteman.create_input_files(RunSplat.INPUT_DIR)
+    # ref_point = (40.762368, -73.120860)    # LI south shore
+    # ref_point = (40.830982, -73.226817)   # LI north shore
+    # main2(ref_point)
 
-    # runsplat = RunSplat(siteman)
-    # # runsplat.generate_terrain_files()  # only need to run for the first time
-    # runsplat.call_splat_parallel(num_cores=11)
-    # runsplat.rerun_timeout(num_cores=11)
-    # runsplat.preprocess_output()
-    # sensors = runsplat.generate_localization_input(sen_num=100, sensors=None, myseed=myseed)
-
-    # # ************************* #
-
-    # previous_grid_len = grid_len
-    # grid_len  = 40
-    # ref_point = (41.280293, -74.013744)   # Bear Mountain
-    # cell_len  = 100
-    # tx_height = 30
-    # rx_height = 15
-    # myseed = 0
-    # new_sensors = transform_sensors(sensors, int(grid_len/previous_grid_len), grid_len)
-
-    # siteman = SiteManager(grid_len, tx_height, rx_height)
-    # siteman.generate_sites(ref_point, cell_len)
-    # siteman.create_input_files(RunSplat.INPUT_DIR)
-
-    # runsplat = RunSplat(siteman)
-    # # runsplat.generate_terrain_files()  # only need to run for the first time
-    # runsplat.call_splat_parallel(num_cores=11)
-    # runsplat.rerun_timeout(num_cores=11)
-    # runsplat.preprocess_output()
-    # runsplat.generate_localization_input(sen_num=100, sensors=new_sensors, myseed=myseed)
-
-
-    # ********************** #
-
-
-    # grid_len  = 5
-    # ref_point = (40.762368, -73.120860)
-    # cell_len  = 800
-    # tx_height = 30
-    # rx_height = 15
-    # myseed = 0
-    
-    # siteman = SiteManager(grid_len, tx_height, rx_height)
-    # siteman.generate_sites(ref_point, cell_len)
-    # siteman.create_input_files(RunSplat.INPUT_DIR)
-
-    # runsplat = RunSplat(siteman)
-    # # runsplat.generate_terrain_files()  # only need to run for the first time
-    # runsplat.call_splat_parallel(num_cores=11)
-    # runsplat.rerun_timeout(num_cores=11)
-    # runsplat.preprocess_output()
-    # sensors = runsplat.generate_localization_input(sen_num=10, sensors=None, myseed=myseed)
-
-    # # # ************************* #
-
-    # previous_grid_len = grid_len
-    # grid_len  = 20
-    # ref_point = (40.762368, -73.120860)
-    # cell_len  = 200
-    # tx_height = 30
-    # rx_height = 15
-    # myseed = 0
-    # new_sensors = transform_sensors(sensors, int(grid_len/previous_grid_len), grid_len)
-
-    # siteman = SiteManager(grid_len, tx_height, rx_height)
-    # siteman.generate_sites(ref_point, cell_len)
-    # siteman.create_input_files(RunSplat.INPUT_DIR)
-
-    # runsplat = RunSplat(siteman)
-    # # runsplat.generate_terrain_files()  # only need to run for the first time
-    # runsplat.call_splat_parallel(num_cores=10)
-    # runsplat.rerun_timeout(num_cores=10)
-    # runsplat.preprocess_output()
-    # runsplat.generate_localization_input(sen_num=10, sensors=new_sensors, myseed=myseed)
+    main3()    
