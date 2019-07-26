@@ -1,12 +1,12 @@
-import numpy as np
 import re
 import math
 import os
 import glob
+import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import mean_absolute_error, median_absolute_error, mean_squared_error
-from utility import distance, weighted_error
+from utility import distance, customized_error, is_in_coarse_grid, hypo_in_coarse_grid
 
 
 NEIGHBOR_NUM = 4
@@ -201,6 +201,56 @@ def _interpolate_iwd(pre_inter, factor):
     return inter.reshape(new_gl*new_gl)
 
 
+def _interpolate_iwd_2(pre_inter, factor, tx, tx_pl):
+    '''Fix one transmitters, interpolate the sensors
+    Args:
+        pre_inter -- np.1darray -- pre interpolated, shape = pre_gl*pre_gl
+        tx         -- int -- the Tx that needs to interpolate Rx
+        factor    -- int
+    Return:
+        np.1darray -- interpolated, shape = gre_gl*gre_gl*factor*factor
+    '''
+    pre_gl = int(math.sqrt(len(pre_inter)))                      # previous grid length (coarse grid)
+    pre_inter = pre_inter.reshape((pre_gl, pre_gl))
+    new_gl = pre_gl*factor                                       # new grid length (find grid)
+    tx_x, tx_y = tx//new_gl, tx%new_gl
+    inter = np.zeros((new_gl, new_gl))
+    for new_x in range(new_gl):
+        for new_y in range(new_gl):
+            if new_x%factor == 0 and new_y%factor == 0:                  # don't need to interpolate
+                inter[new_x][new_y] = pre_inter[new_x//factor][new_y//factor]
+            else:
+                v_x, v_y = float(new_x)/factor, float(new_y)/factor  # virtual point in the coarse grid / real point in the fine grid
+                # pick some close points from the coarse grid
+                points = []
+                for pre_x in range(math.floor(v_x - 1), math.ceil(v_x + 1) + 1):
+                    for pre_y in range(math.floor(v_y - 1), math.ceil(v_y + 1) + 1):
+                        if pre_x >= 0 and pre_x < pre_gl and pre_y >= 0 and pre_y < pre_gl:
+                            points.append((pre_x, pre_y, distance((v_x, v_y), (pre_x, pre_y))))
+                dist_to_tx = distance((new_x, new_y), (tx_x, tx_y))
+                if dist_to_tx < 4:
+                    points.append((tx_x/factor, tx_y/factor, dist_to_tx))
+                points = sorted(points, key=lambda tup: tup[2])           # sort by distance
+                threshold = min(NEIGHBOR_NUM, len(points))
+                weights = np.zeros(threshold)
+                for i in range(threshold):
+                    point = points[i]
+                    dist = distance((v_x, v_y), point)
+                    dist = 0.1 if dist == 0.0 else dist
+                    weights[i] = (1./dist)**2                     # inverse weighted distance or inverse weighted square
+                weights /= np.sum(weights)                        # normalize them
+                idw = 0
+                for i in range(threshold):
+                    w = weights[i]
+                    try:
+                        pre_rss = pre_inter[points[i][0]][points[i][1]]
+                    except:
+                        pre_rss = tx_pl
+                    idw += w*pre_rss
+                inter[new_x][new_y] = idw
+    return inter.reshape(new_gl*new_gl)
+
+
 def interpolate_idw(data, factor=4):
     '''Interpolate by inverse distance weight, do two pass interpolation.
     Args:
@@ -217,13 +267,20 @@ def interpolate_idw(data, factor=4):
         pass_one_data.append(data_inter)
     pass_one_data = np.array(pass_one_data)     # shape = (h, f^2*h)
 
+    pass_one_data_copy = np.copy(pass_one_data)
     pass_one_data = np.transpose(pass_one_data) # symmetry assumption
+    grid_len = int(math.sqrt(len(pass_one_data)))
     # pass 2
+    tx_pl = pass_one_data_copy[0][0]
     pass_two_data = []
     inter_hypo = len(pass_one_data)
     for i in range(inter_hypo):
-        data_inter = _interpolate_iwd(pass_one_data[i], factor)
-        pass_two_data.append(data_inter)
+        if is_in_coarse_grid(i, grid_len, factor):
+            coarse_hypo = hypo_in_coarse_grid(i, grid_len, factor)
+            pass_two_data.append(pass_one_data_copy[coarse_hypo])
+        else:
+            data_inter = _interpolate_iwd_2(pass_one_data[i], factor, i, tx_pl)
+            pass_two_data.append(data_inter)
 
     return np.array(pass_two_data)
 
@@ -249,7 +306,7 @@ def compute_weighted_error(pred, true):
     Return:
         (float, float, float) -- mean absolute error, median absolute error, root mean square error
     '''
-    return weighted_error(pred, true)
+    return customized_error(pred, true)
 
 
 def write_readme(directory):
@@ -382,27 +439,22 @@ def main7():
     _, itwom_inter = get_all_data(DIR2)
     fspl_true, itwom_true   = get_all_data(DIR3)
     clean_all_itwom(itwom_true, fspl_true)
-    mean, abso = weighted_error(itwom_inter, itwom_true)
-    print('mean = {}; median = {}'.format(mean, abso))
+    mean, median, coarse_mean, coarse_median, fine_mean, fine_median = customized_error(itwom_inter, itwom_true)
+    print('mean = {}, median = {}; coarse mean = {}, fine median = {}; fine mean = {}, fine median = {}'.format(mean, median, coarse_mean, coarse_median, fine_mean, fine_median))
 
 
 if __name__ == '__main__':
     
     # main1()
-    main2()
+    # main2()
     # main3()
     # main4()
     # main5()
     # main6()
-    # main7()
+    main7()
 
     # tx_coarse = '0099'
     # tx_fine   = '0788'
     # visualize_tx('output7/' + tx_coarse)
     # visualize_tx('interpolate7/' + tx_fine)
     # visualize_tx('output8/' + tx_fine)
-
-    
-
-
-    

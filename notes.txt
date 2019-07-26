@@ -2,3 +2,10 @@ Long island south shore:  (40.762368, -73.120860)  -- 7, 8, 9, 10
 Long island north shore:  (40.830982, -73.226817)  -- 11, 12
 Bear Mountain State Park: (41.280293, -74.013744)  -- 13, 14
 Comparing the extent of irregularity, Bear > north shore > south shore
+
+
+
+ITWOM:
+mean absolute error     = 1.450839357741425
+median absolute error   = 0.7792740235956472
+root mean squared error = 2.38631560342555
