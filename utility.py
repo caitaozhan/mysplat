@@ -42,8 +42,8 @@ def hypo_in_coarse_grid(hypo, grid_len, factor):
     '''
     x = hypo//grid_len
     y = hypo%grid_len
-    x = x/factor
-    y = y/factor
+    x = int(x/factor)
+    y = int(y/factor)
     coarse_grid_len = int(grid_len/factor)
     return x*coarse_grid_len + y
 
@@ -78,6 +78,6 @@ def customized_error(pred, true, dist_th=4):
     errors = np.array(errors)
     errors_coarse = np.array(errors_coarse)
     errors_fine = np.array(errors_fine)
-    return errors.mean(), sorted(errors)[int(len(errors)/2)], \
-           errors_coarse.mean(), sorted(errors_coarse)[int(len(errors_coarse)/2)], \
-           errors_fine.mean(), sorted(errors_fine)[int(len(errors_fine)/2)]
+    return errors.mean(), sorted(errors)[int(len(errors)/2)], errors.std(), \
+           errors_coarse.mean(), sorted(errors_coarse)[int(len(errors_coarse)/2)], errors_coarse.std(), \
+           errors_fine.mean(), sorted(errors_fine)[int(len(errors_fine)/2)], errors_fine.std()

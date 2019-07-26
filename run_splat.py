@@ -554,10 +554,10 @@ def main3():
 
 if __name__ == '__main__':
 
-    # main1()
+    main1()
 
     # ref_point = (40.762368, -73.120860)    # LI south shore
     # ref_point = (40.830982, -73.226817)   # LI north shore
     # main2(ref_point)
 
-    main3()    
+    # main3()    

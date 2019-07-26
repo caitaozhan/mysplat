@@ -226,26 +226,27 @@ def _interpolate_iwd_2(pre_inter, factor, tx, tx_pl):
                 for pre_x in range(math.floor(v_x - 1), math.ceil(v_x + 1) + 1):
                     for pre_y in range(math.floor(v_y - 1), math.ceil(v_y + 1) + 1):
                         if pre_x >= 0 and pre_x < pre_gl and pre_y >= 0 and pre_y < pre_gl:
-                            points.append((pre_x, pre_y, distance((v_x, v_y), (pre_x, pre_y))))
-                dist_to_tx = distance((new_x, new_y), (tx_x, tx_y))
-                if dist_to_tx < 4:
-                    points.append((tx_x/factor, tx_y/factor, dist_to_tx))
+                            points.append((pre_x, pre_y, distance((v_x, v_y), (pre_x, pre_y))))  # the distance between the virtual Rx in the coarse grid and coarse Rx
+                dist_to_tx_fine = distance((new_x, new_y), (tx_x, tx_y))       # distance in the fine grid
+                if dist_to_tx_fine < 4:
+                    dist_to_tx_coarse = distance((v_x, v_y), (tx_x/factor, tx_y/factor))
+                    points.append((tx_x/factor, tx_y/factor, dist_to_tx_coarse)) # the additional Rx at the same location as the Tx
                 points = sorted(points, key=lambda tup: tup[2])           # sort by distance
                 threshold = min(NEIGHBOR_NUM, len(points))
                 weights = np.zeros(threshold)
                 for i in range(threshold):
                     point = points[i]
                     dist = distance((v_x, v_y), point)
-                    dist = 0.1 if dist == 0.0 else dist
-                    weights[i] = (1./dist)**2                     # inverse weighted distance or inverse weighted square
-                weights /= np.sum(weights)                        # normalize them
+                    dist = 0.01 if dist == 0.0 else dist
+                    weights[i] = (1./dist)**2                             # inverse weighted distance or inverse weighted square
+                weights /= np.sum(weights)                                # normalize them
                 idw = 0
                 for i in range(threshold):
                     w = weights[i]
                     try:
                         pre_rss = pre_inter[points[i][0]][points[i][1]]
                     except:
-                        pre_rss = tx_pl
+                        pre_rss = tx_pl                                   # the additional Rx at the same location as the Tx
                     idw += w*pre_rss
                 inter[new_x][new_y] = idw
     return inter.reshape(new_gl*new_gl)
@@ -281,6 +282,9 @@ def interpolate_idw(data, factor=4):
         else:
             data_inter = _interpolate_iwd_2(pass_one_data[i], factor, i, tx_pl)
             pass_two_data.append(data_inter)
+        
+        # data_inter = _interpolate_iwd_2(pass_one_data[i], factor, i, tx_pl)
+        # pass_two_data.append(data_inter)
 
     return np.array(pass_two_data)
 
@@ -439,14 +443,15 @@ def main7():
     _, itwom_inter = get_all_data(DIR2)
     fspl_true, itwom_true   = get_all_data(DIR3)
     clean_all_itwom(itwom_true, fspl_true)
-    mean, median, coarse_mean, coarse_median, fine_mean, fine_median = customized_error(itwom_inter, itwom_true)
-    print('mean = {}, median = {}; coarse mean = {}, fine median = {}; fine mean = {}, fine median = {}'.format(mean, median, coarse_mean, coarse_median, fine_mean, fine_median))
+    mean, median, std, coarse_mean, coarse_median, coarse_std, fine_mean, fine_median, fine_std = customized_error(itwom_inter, itwom_true)
+    print('\nmean      = {:.3f}, median      = {:.3f}, std      = {:.3f}\ncoar mean = {:.3f}, coar median = {:.3f}, coar std = {:.3f}\nfine mean = {:.3f}, fine median = {:.3f}, fine std = {:.3f}'.format(\
+             mean, median, std, coarse_mean, coarse_median, coarse_std, fine_mean, fine_median, fine_std))
 
 
 if __name__ == '__main__':
     
     # main1()
-    # main2()
+    main2()
     # main3()
     # main4()
     # main5()
