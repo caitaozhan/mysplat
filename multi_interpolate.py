@@ -15,7 +15,7 @@ from utility import write_all_itwom, read_all_itwom, customized_error
 class Global:   # Global variables
     AREA_LEN  = 4000    # the area is 4000m x 4000m
     HIGH      = 0              # HIGH granularity is   0 ~ 400     (meters)
-    MED       = 400            # MEDium granularity is 400 ~ 1200
+    MED       = 0            # MEDium granularity is 400 ~ 1200
     # LOW  = 1200           # LOW granularity is    > 1200
     GRAN_LEVEL  = [HIGH, MED]
 
@@ -253,15 +253,15 @@ def main1():
     #     txmg.add_sensor_data(grid_len, itwom)
     # txmg.combine_sensor_data()
 
-    # DIR1 = 'output7'          # 100 hypotheses
-    # DIR2 = 'output10'         # 400 hypotheses
-    # DIR3 = 'interpolate7'     # 1600 hypotheses interpolated
-    # DIR4 = 'output8'          # 1600 hypotheses
+    DIR1 = 'output7'          # 100 hypotheses
+    DIR2 = 'output10'         # 400 hypotheses
+    DIR3 = 'interpolate7'     # 1600 hypotheses interpolated
+    DIR4 = 'output8'          # 1600 hypotheses
     
-    DIR1 = 'output9'            # 25 hypotheses
-    DIR2 = 'output7'            # 100 hypotheses
-    DIR3 = 'interpolate9'       # 400 hypotheses interpolated
-    DIR4 = 'output10'           # 400 hypotheses
+    # DIR1 = 'output9'            # 25 hypotheses
+    # DIR2 = 'output7'            # 100 hypotheses
+    # DIR3 = 'interpolate9'       # 400 hypotheses interpolated
+    # DIR4 = 'output10'           # 400 hypotheses
     
     txfiles = sorted(glob.glob(DIR1 + '/*'))
     txs = []
@@ -289,7 +289,7 @@ def main1():
         txmg.combine_sensor_data()
         txs.append(txmg)
     
-    itwom_inter = MultiIntepolate.idw_interpolate(txs, target_grid_len=20)
+    itwom_inter = MultiIntepolate.idw_interpolate(txs, target_grid_len=40)
 
     fspl_true, itwom_true = read_all_data(DIR4)
     clean_all_itwom(itwom_true, fspl_true)
