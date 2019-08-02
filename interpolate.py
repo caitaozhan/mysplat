@@ -347,7 +347,7 @@ def main7():
     '''Weighted Error
     '''
     # DIR  = 'output7'       # 100 hypothesis
-    DIR2 = 'interpolate7'  # 1600 hypothesis interpolated
+    DIR2 = 'interpolate10'  # 1600 hypothesis interpolated
     DIR3 = 'output8'       # 1600 hypothesis
     _, itwom_inter = read_all_data(DIR2)
     fspl_true, itwom_true   = read_all_data(DIR3)
@@ -360,9 +360,9 @@ def main7():
 if __name__ == '__main__':
     
     # main1()
-    main2()
+    # main2()
     # main3()
-    # main4()
+    main4()
     # main5()
     # main6()
     main7()
