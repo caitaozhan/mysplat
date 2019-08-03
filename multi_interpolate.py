@@ -15,9 +15,13 @@ from utility import write_all_itwom, read_all_itwom, customized_error
 class Global:   # Global variables
     AREA_LEN  = 4000    # the area is 4000m x 4000m
     HIGH      = 0              # HIGH granularity is   0 ~ 400     (meters)
-    MED       = 0            # MEDium granularity is 400 ~ 1200
+    MED       = 400            # MEDium granularity is 400 ~ 1200
     # LOW  = 1200           # LOW granularity is    > 1200
     GRAN_LEVEL  = [HIGH, MED]
+
+    @staticmethod
+    def print():
+        print('Granularity level:', Global.GRAN_LEVEL)
 
 
 
@@ -302,6 +306,8 @@ def main1():
              mean, median, std, coarse_mean, coarse_median, coarse_std, fine_mean, fine_median, fine_std))
 
     write_all_itwom(itwom_inter, DIR3)
+    
+    print(Global.GRAN_LEVEL)
 
 
 if __name__ == '__main__':
