@@ -63,15 +63,17 @@ def customized_error(pred, true, dist_th=4):
     '''
     size = len(pred)
     grid_len = int(math.sqrt(len(pred)))
+    all_error  = []
+    all_weight = []
     errors = []
     errors_coarse = []   # errors of Tx -- Rx where Tx exists in the coarse grid
     errors_fine = []     # errors of Tx -- Rx where Tx are only in the fine grid
     for i in range(size):
+        tx = (i//grid_len, i%grid_len)
         in_coarse = is_in_coarse_grid(i, grid_len=40, factor=4)
         for j in range(size):
             error = pred[i][j] - true[i][j]
-            tx = (i//grid_len, i%grid_len)
-            rx = (j//grid_len, i%grid_len)
+            rx = (j//grid_len, j%grid_len)
             dist  = distance(tx, rx)
             if dist <= dist_th:
                 errors.append(abs(error))

@@ -16,13 +16,12 @@ class Global:   # Global variables
     AREA_LEN  = 4000    # the area is 4000m x 4000m
     HIGH      = 0              # HIGH granularity is   0 ~ 400     (meters)
     MED       = 400            # MEDium granularity is 400 ~ 1200
-    # LOW  = 1200           # LOW granularity is    > 1200
-    GRAN_LEVEL  = [HIGH, MED]
+    LOW       = 1200           # LOW granularity is    > 1200
+    GRAN_LEVEL  = [HIGH, MED, LOW]
 
     @staticmethod
     def print():
         print('Granularity level:', Global.GRAN_LEVEL)
-
 
 
 class TxMultiGran:
@@ -30,6 +29,7 @@ class TxMultiGran:
     '''
     TX_GRID_LEN = 10      # the granularity of the Tx during training
     RX_CELL_LEN = {}      # grid_len --> cell length
+    NUM_WIRELESS_LINK = 0
 
     def __init__(self, x, y, debug=False):
         self.x = x              # the location of the Tx at Global.TX_GRID_LEn
@@ -100,7 +100,8 @@ class TxMultiGran:
                     self.sensor_data[x][y] = gran_data[index]
         if self.debug:
             num_wireless_link = np.count_nonzero(self.sensor_data)
-            print('Tx = ({}, {})'.format(self.x, self.y), '; number of wireless links to sensors', num_wireless_link)
+            TxMultiGran.NUM_WIRELESS_LINK += num_wireless_link
+            print('Tx = ({}, {})'.format(self.x, self.y), '; number of wireless links to sensors', num_wireless_link, '; Total = {}'.format(TxMultiGran.NUM_WIRELESS_LINK))
 
 
 class MultiIntepolate:
@@ -159,9 +160,12 @@ class MultiIntepolate:
                 else:
                     v_x, v_y = new_x/factor, new_y/factor    # virtual point in the coarse grid
                     points = []                              # pick some points from the coarse grid
-                    for pre_x in range(math.floor(v_x - 2), math.ceil(v_x + 1) + 2):
-                        for pre_y in range(math.floor(v_y - 2), math.ceil(v_y + 1) + 2):
-                            if pre_x >= 0 and pre_x < pre_gl and pre_y >= 0 and pre_y < pre_gl and sensor_data[pre_x][pre_y] != 0:
+                    edge = int(4/factor)
+                    for pre_x in range(math.floor(v_x - edge), math.ceil(v_x + 1) + edge):
+                        if pre_x < 0 or pre_x >= pre_gl:     # the x range
+                            continue
+                        for pre_y in range(math.floor(v_y - edge), math.ceil(v_y + 1) + edge):
+                            if pre_y >= 0 and pre_y < pre_gl and sensor_data[pre_x][pre_y] != 0:
                                 points.append((pre_x, pre_y, distance((v_x, v_y), (pre_x, pre_y))))
                     points = sorted(points, key=lambda tup: tup[2])           # sort by distance
                     threshold = min(MultiIntepolate.NEIGHBOUR_NUM, len(points))
@@ -269,8 +273,8 @@ def main1():
     
     txfiles = sorted(glob.glob(DIR1 + '/*'))
     txs = []
-    factors = [2]   # factors in grid_len
-    directories = [DIR2]
+    factors = [2, 4]   # factors in grid_len
+    directories = [DIR2, DIR4]
     for txfile in txfiles:
         tx_1dindex = get_tx_index(txfile)  # 1d index of TX
         try:
@@ -301,8 +305,8 @@ def main1():
     mean, median, root = compute_error(itwom_inter, itwom_true)
     print('ITWOM:\nmean absolute error     = {}\nmedian absolute error   = {}\nroot mean squared error = {}'.format(mean, median, root))
 
-    mean, median, std, coarse_mean, coarse_median, coarse_std, fine_mean, fine_median, fine_std = customized_error(itwom_inter, itwom_true)
-    print('\nmean      = {:.3f}, median      = {:.3f}, std      = {:.3f}\ncoar mean = {:.3f}, coar median = {:.3f}, coar std = {:.3f}\nfine mean = {:.3f}, fine median = {:.3f}, fine std = {:.3f}'.format(\
+    mean, median, std, coarse_mean, coarse_median, coarse_std, fine_mean, fine_median, fine_std = customized_error(itwom_inter, itwom_true, dist_th=8)
+    print('mean      = {:.3f}, median      = {:.3f}, std      = {:.3f}\ncoar mean = {:.3f}, coar median = {:.3f}, coar std = {:.3f}\nfine mean = {:.3f}, fine median = {:.3f}, fine std = {:.3f}'.format(\
              mean, median, std, coarse_mean, coarse_median, coarse_std, fine_mean, fine_median, fine_std))
 
     write_all_itwom(itwom_inter, DIR3)
