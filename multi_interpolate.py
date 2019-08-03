@@ -24,6 +24,18 @@ class Global:   # Global variables
         print('Granularity level:', Global.GRAN_LEVEL)
 
 
+# class Global:   # Global variables
+#     AREA_LEN  = 4000    # the area is 4000m x 4000m
+#     HIGH      = 0              # HIGH granularity is   0 ~ 400     (meters)
+#     MED       = 10            # MEDium granularity is 400 ~ 1200
+#     LOW       = 8000           # LOW granularity is    > 1200
+#     GRAN_LEVEL  = [HIGH, MED, LOW]
+
+    # @staticmethod
+    # def print():
+    #     print('Granularity level:', Global.GRAN_LEVEL)
+
+
 class TxMultiGran:
     '''Encapsulate one Tx. Handles multiple granularity of RX of one Tx
     '''
@@ -270,11 +282,11 @@ def main1():
     # DIR2 = 'output7'            # 100 hypotheses
     # DIR3 = 'interpolate9'       # 400 hypotheses interpolated
     # DIR4 = 'output10'           # 400 hypotheses
-    
-    txfiles = sorted(glob.glob(DIR1 + '/*'))
+    TxMultiGran.TX_GRID_LEN = 20
+    txfiles = sorted(glob.glob(DIR2 + '/*'))
     txs = []
-    factors = [2, 4]   # factors in grid_len
-    directories = [DIR2, DIR4]
+    factors = [0.5, 2]   # factors in grid_len
+    directories = [DIR1, DIR4]
     for txfile in txfiles:
         tx_1dindex = get_tx_index(txfile)  # 1d index of TX
         try:
@@ -288,9 +300,9 @@ def main1():
         txmg.add_sensor_data(grid_len, itwom)
         
         for factor, directory in zip(factors, directories):
-            fine_grid_len = grid_len * factor                      # multi-granularity sensor
-            fine_x = x*factor
-            fine_y = y*factor
+            fine_grid_len = int(grid_len * factor)                      # multi-granularity sensor
+            fine_x = int(x*factor)
+            fine_y = int(y*factor)
             txfile = directory + '/{:04}'.format(indexconvert((fine_x, fine_y), fine_grid_len))
             itwom = read_clean_itwom(txfile)
             txmg.add_sensor_data(fine_grid_len, itwom)
