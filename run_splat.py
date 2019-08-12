@@ -402,19 +402,32 @@ class RunSplat:
                 t_y = hypo%self.siteman.grid_len
                 hypo4 = '{:04}'.format(hypo)
                 output = np.loadtxt(RunSplat.OUTPUT_DIR_CUR + '/{}'.format(hypo4), delimiter=',')
-                fspl, itwom = output[0], output[1]
-                if model == 'itwom':
-                    clean_itwom(itwom, fspl)
-                    means = power - itwom     # irregular terrain with obstruction model
+                if output.ndim == 2:
+                    fspl, itwom = output[0], output[1]
+                    if model == 'itwom':
+                        clean_itwom(itwom, fspl)
+                        means = power - itwom     # irregular terrain with obstruction model
+                    else:
+                        means = power - fspl      # free space path loss
+                    for i, sen in enumerate(sensors):
+                        s_x = sen[0]
+                        s_y = sen[1]
+                        s_index2d = sen[2]
+                        mean = means[s_index2d]
+                        std  = stds[i]
+                        f.write('{} {} {} {} {} {}\n'.format(t_x, t_y, s_x, s_y, mean, std))
+                elif output.ndim == 1:   # the interpolated data only has itwom data and is already cleaned
+                    if model == 'itwom':
+                        means = power - output
+                        for i, sen in enumerate(sensors):
+                            s_x = sen[0]
+                            s_y = sen[1]
+                            s_index2d = sen[2]
+                            mean = means[s_index2d]
+                            std  = stds[i]
+                            f.write('{} {} {} {} {} {}\n'.format(t_x, t_y, s_x, s_y, mean, std))
                 else:
-                    means = power - fspl      # free space path loss
-                for i, sen in enumerate(sensors):
-                    s_x = sen[0]
-                    s_y = sen[1]
-                    s_index2d = sen[2]
-                    mean = means[s_index2d]
-                    std  = stds[i]
-                    f.write('{} {} {} {} {} {}\n'.format(t_x, t_y, s_x, s_y, mean, std))
+                    raise Exception('Output data dimension is not 1 nor 2.')
 
         # 4. README file
         with open(new_dir + '/README', 'w') as f:
@@ -479,9 +492,11 @@ def main1():
     setattr(siteman, 'ref_point', ref_point)
     setattr(siteman, 'cell_len', cell_len)
     runsplat = RunSplat(siteman)
-    setattr(RunSplat, 'OUTPUT_DIR_CUR', 'interpolate7')
+    setattr(RunSplat, 'OUTPUT_DIR_CUR', 'interpolate8')
     runsplat.generate_localization_input(sen_num=200, sensors=None, myseed=myseed, interpolate=True)
 
+    setattr(RunSplat, 'OUTPUT_DIR_CUR', 'output8')
+    runsplat.generate_localization_input(sen_num=200, sensors=None, myseed=myseed, interpolate=False)
 
 
 def main2(ref_point):
@@ -528,7 +543,6 @@ def main2(ref_point):
     runsplat.rerun_timeout(num_cores=11)
     runsplat.preprocess_output()
     runsplat.generate_localization_input(sen_num=100, sensors=new_sensors, myseed=myseed)
-
 
 
 def main3():
@@ -603,8 +617,8 @@ if __name__ == '__main__':
 
     ref_point = (40.762368, -73.120860)    # LI south shore
     # ref_point = (40.830982, -73.226817)   # LI north shore
-    # main2(ref_point)
+    main2(ref_point)
 
     # main3()    
 
-    main4(ref_point)
+    # main4(ref_point)

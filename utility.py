@@ -52,7 +52,7 @@ def hypo_in_coarse_grid(hypo, grid_len, factor):
     return x*coarse_grid_len + y
 
 
-def customized_error(pred, true, dist_th=4):
+def customized_error(pred, true, dist_th=4, factor=4):
     '''
     Args:
         pred -- np.2darray -- the interpolated data
@@ -63,19 +63,17 @@ def customized_error(pred, true, dist_th=4):
     '''
     size = len(pred)
     grid_len = int(math.sqrt(len(pred)))
-    all_error  = []
-    all_weight = []
     errors = []
     errors_coarse = []   # errors of Tx -- Rx where Tx exists in the coarse grid
-    errors_fine = []     # errors of Tx -- Rx where Tx are only in the fine grid
+    errors_fine = [0]     # errors of Tx -- Rx where Tx are only in the fine grid
     for i in range(size):
         tx = (i//grid_len, i%grid_len)
-        in_coarse = is_in_coarse_grid(i, grid_len=40, factor=4)
+        in_coarse = is_in_coarse_grid(i, grid_len=40, factor=factor)
         for j in range(size):
             error = pred[i][j] - true[i][j]
             rx = (j//grid_len, j%grid_len)
             dist  = distance(tx, rx)
-            if dist <= dist_th:
+            if dist < dist_th:
                 errors.append(abs(error))
                 if in_coarse:
                     errors_coarse.append(abs(error))

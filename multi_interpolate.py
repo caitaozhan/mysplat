@@ -14,9 +14,9 @@ from utility import write_all_itwom, read_all_itwom, customized_error
 
 class Global:   # Global variables
     AREA_LEN  = 4000    # the area is 4000m x 4000m
-    HIGH      = 0              # HIGH granularity is   0 ~ 400     (meters)
-    MED       = 400            # MEDium granularity is 400 ~ 1200
-    LOW       = 1200           # LOW granularity is    > 1200
+    HIGH      = 0              # HIGH granularity is   0 ~ HIGH     (meters)
+    MED       = 400            # MEDium granularity is HIGH ~ MED
+    LOW       = 800            # LOW granularity is    > LOW
     GRAN_LEVEL  = [HIGH, MED, LOW]
 
     @staticmethod
@@ -28,12 +28,12 @@ class Global:   # Global variables
 #     AREA_LEN  = 4000    # the area is 4000m x 4000m
 #     HIGH      = 0              # HIGH granularity is   0 ~ 400     (meters)
 #     MED       = 10            # MEDium granularity is 400 ~ 1200
-#     LOW       = 8000           # LOW granularity is    > 1200
+#     LOW       = 20           # LOW granularity is    > 1200
 #     GRAN_LEVEL  = [HIGH, MED, LOW]
 
-    # @staticmethod
-    # def print():
-    #     print('Granularity level:', Global.GRAN_LEVEL)
+#     @staticmethod
+#     def print():
+#         print('Granularity level:', Global.GRAN_LEVEL)
 
 
 class TxMultiGran:
@@ -80,6 +80,7 @@ class TxMultiGran:
         '''Combine sensor data from multiply granularity. each granularity has full data in 1 dimension (from the SPLAT!)
         '''
         grid_lens = sorted(TxMultiGran.RX_CELL_LEN.keys())  # [5, 10, 20]
+
         if len(grid_lens) != len(Global.GRAN_LEVEL):
             print((self.x, self.y), 'length of grid_lens and granularity level doesn\'t match !')
             return
@@ -94,9 +95,9 @@ class TxMultiGran:
         grid_len2ratio = {}
         for grid_len in grid_lens:
             grid_len2ratio[grid_len] = int(finest_rx_grid_len/grid_len)         # {5 --> 4, 10 --> 2, 20 --> 1}
-        
+
         self.sensor_data = np.zeros((finest_rx_grid_len, finest_rx_grid_len))   # fill up this array
-        
+
         t_x = self.x * grid_len2ratio[TxMultiGran.TX_GRID_LEN]
         t_y = self.y * grid_len2ratio[TxMultiGran.TX_GRID_LEN]
         for x in range(finest_rx_grid_len):
@@ -106,10 +107,19 @@ class TxMultiGran:
                 grid_len   = gran_level2grid_len[gran_level]
                 ratio = grid_len2ratio[grid_len]
                 if x%ratio == 0 and y%ratio == 0:
-                    gran_data = self.granularity_data[grid_len]
-                    gran_grid_len = int(math.sqrt(len(gran_data)))
-                    index = x//ratio * gran_grid_len + y//ratio
-                    self.sensor_data[x][y] = gran_data[index]
+                    if TxMultiGran.TX_GRID_LEN == grid_lens[0]:
+                        # when the Tx granularity equals to the lowest Rx granularity
+                        gran_data = self.granularity_data[grid_len]
+                        gran_grid_len = int(math.sqrt(len(gran_data)))
+                        index = x//ratio * gran_grid_len + y//ratio
+                        self.sensor_data[x][y] = gran_data[index]
+                    else:
+                        # when the Tx granularity not equal to the lowest Rx granularity, only use the finest granularity
+                        gran_data = self.granularity_data[finest_rx_grid_len]
+                        gran_grid_len = int(math.sqrt(len(gran_data)))
+                        index = x*gran_grid_len + y
+                        self.sensor_data[x][y] = gran_data[index]
+
         if self.debug:
             num_wireless_link = np.count_nonzero(self.sensor_data)
             TxMultiGran.NUM_WIRELESS_LINK += num_wireless_link
@@ -248,6 +258,15 @@ class MultiIntepolate:
         return inter.reshape(target_grid_len*target_grid_len)
 
 
+    @staticmethod
+    def alpha_interpolate(txs, target_grid_len):
+        '''Interpolation through computing the alpha (the coefficient of log-distance)
+        Args:
+            txs -- list<TxMultiGran>
+            target_grid_len -- int -- interpolate both Tx and Rx into a grid of (target_grid_len, target_grid_len)
+        '''
+        pass
+
 
 def read_clean_itwom(txfile):
     '''Read all pathloss
@@ -275,18 +294,32 @@ def main1():
 
     DIR1 = 'output7'          # 100 hypotheses
     DIR2 = 'output10'         # 400 hypotheses
-    DIR3 = 'interpolate7'     # 1600 hypotheses interpolated
-    DIR4 = 'output8'          # 1600 hypotheses
+    DIR3 = 'output8'          # 1600 hypotheses
+    DIR4 = 'interpolate8'     # 1600 hypotheses interpolated
     
     # DIR1 = 'output9'            # 25 hypotheses
     # DIR2 = 'output7'            # 100 hypotheses
     # DIR3 = 'interpolate9'       # 400 hypotheses interpolated
     # DIR4 = 'output10'           # 400 hypotheses
-    TxMultiGran.TX_GRID_LEN = 20
-    txfiles = sorted(glob.glob(DIR2 + '/*'))
+    
+    # txfiles = sorted(glob.glob(DIR1 + '/*'))
+    # txs = []
+    # factors = [2, 4]   # factors in grid_len
+    # directories = [DIR2, DIR3]
+    
+    # TxMultiGran.TX_GRID_LEN = 20
+    # txfiles = sorted(glob.glob(DIR2 + '/*'))
+    # txs = []
+    # factors = [0.5, 2]   # factors in grid_len
+    # directories = [DIR1, DIR3]
+
+    TxMultiGran.TX_GRID_LEN = 40
+    txfiles = sorted(glob.glob(DIR3 + '/*'))
     txs = []
-    factors = [0.5, 2]   # factors in grid_len
-    directories = [DIR1, DIR4]
+    factors = [0.25, 0.5]   # factors in grid_len
+    directories = [DIR1, DIR2]
+
+    target_grid_len = 40
     for txfile in txfiles:
         tx_1dindex = get_tx_index(txfile)  # 1d index of TX
         try:
@@ -309,19 +342,19 @@ def main1():
         txmg.combine_sensor_data()
         txs.append(txmg)
     
-    itwom_inter = MultiIntepolate.idw_interpolate(txs, target_grid_len=40)
+    itwom_inter = MultiIntepolate.idw_interpolate(txs, target_grid_len=target_grid_len)
 
-    fspl_true, itwom_true = read_all_data(DIR4)
+    fspl_true, itwom_true = read_all_data(DIR3)
     clean_all_itwom(itwom_true, fspl_true)
 
     mean, median, root = compute_error(itwom_inter, itwom_true)
     print('ITWOM:\nmean absolute error     = {}\nmedian absolute error   = {}\nroot mean squared error = {}'.format(mean, median, root))
 
-    mean, median, std, coarse_mean, coarse_median, coarse_std, fine_mean, fine_median, fine_std = customized_error(itwom_inter, itwom_true, dist_th=8)
+    mean, median, std, coarse_mean, coarse_median, coarse_std, fine_mean, fine_median, fine_std = customized_error(itwom_inter, itwom_true, dist_th=8, factor=int(target_grid_len/TxMultiGran.TX_GRID_LEN))
     print('mean      = {:.3f}, median      = {:.3f}, std      = {:.3f}\ncoar mean = {:.3f}, coar median = {:.3f}, coar std = {:.3f}\nfine mean = {:.3f}, fine median = {:.3f}, fine std = {:.3f}'.format(\
              mean, median, std, coarse_mean, coarse_median, coarse_std, fine_mean, fine_median, fine_std))
 
-    write_all_itwom(itwom_inter, DIR3)
+    write_all_itwom(itwom_inter, DIR4)
     
     print(Global.GRAN_LEVEL)
 
