@@ -1,0 +1,2 @@
+alias prs='time python run_splat.py'
+alias pmi='time python multi_interpolate.py'

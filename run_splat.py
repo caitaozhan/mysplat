@@ -495,8 +495,8 @@ def main1():
     setattr(RunSplat, 'OUTPUT_DIR_CUR', 'interpolate8')
     runsplat.generate_localization_input(sen_num=200, sensors=None, myseed=myseed, interpolate=True)
 
-    setattr(RunSplat, 'OUTPUT_DIR_CUR', 'output8')
-    runsplat.generate_localization_input(sen_num=200, sensors=None, myseed=myseed, interpolate=False)
+    # setattr(RunSplat, 'OUTPUT_DIR_CUR', 'output8')
+    # runsplat.generate_localization_input(sen_num=200, sensors=None, myseed=myseed, interpolate=False)
 
 
 def main2(ref_point):
@@ -613,11 +613,11 @@ def main4(ref_point):
 
 if __name__ == '__main__':
 
-    # main1()
+    main1()
 
-    ref_point = (40.762368, -73.120860)    # LI south shore
+    # ref_point = (40.762368, -73.120860)    # LI south shore
     # ref_point = (40.830982, -73.226817)   # LI north shore
-    main2(ref_point)
+    # main2(ref_point)
 
     # main3()    
 

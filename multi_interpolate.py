@@ -14,10 +14,11 @@ from utility import write_all_itwom, read_all_itwom, customized_error
 
 class Global:   # Global variables
     AREA_LEN  = 4000    # the area is 4000m x 4000m
-    HIGH      = 0              # HIGH granularity is   0 ~ HIGH     (meters)
-    MED       = 400            # MEDium granularity is HIGH ~ MED
-    LOW       = 800            # LOW granularity is    > LOW
-    GRAN_LEVEL  = [HIGH, MED, LOW]
+    HIGH      = 0              # HIGH granularity is      0 ~ HIGH  (meters)
+    MED       = 200           # MEDium granularity is HIGH ~ MED
+    LOW       = 800           # LOW granularity is    MED  ~ LOW
+    U_LOW     = 1000           # Ultra_LOW granularity is > U_LOW
+    GRAN_LEVEL  = [HIGH, MED, LOW, U_LOW]
 
     @staticmethod
     def print():
@@ -106,7 +107,7 @@ class TxMultiGran:
                 gran_level = self.get_gran_level(Global.GRAN_LEVEL, dist)
                 grid_len   = gran_level2grid_len[gran_level]
                 ratio = grid_len2ratio[grid_len]
-                if x%ratio == 0 and y%ratio == 0:
+                if x%ratio == 0 and y%ratio == 0:   # granularity control by this ratio
                     if TxMultiGran.TX_GRID_LEN == grid_lens[0]:
                         # when the Tx granularity equals to the lowest Rx granularity
                         gran_data = self.granularity_data[grid_len]
@@ -182,7 +183,7 @@ class MultiIntepolate:
                 else:
                     v_x, v_y = new_x/factor, new_y/factor    # virtual point in the coarse grid
                     points = []                              # pick some points from the coarse grid
-                    edge = int(4/factor)
+                    edge = int(8/factor)
                     for pre_x in range(math.floor(v_x - edge), math.ceil(v_x + 1) + edge):
                         if pre_x < 0 or pre_x >= pre_gl:     # the x range
                             continue
@@ -292,6 +293,7 @@ def main1():
     #     txmg.add_sensor_data(grid_len, itwom)
     # txmg.combine_sensor_data()
 
+    DIR0 = 'output9'          # 25  hypotheses
     DIR1 = 'output7'          # 100 hypotheses
     DIR2 = 'output10'         # 400 hypotheses
     DIR3 = 'output8'          # 1600 hypotheses
@@ -313,11 +315,17 @@ def main1():
     # factors = [0.5, 2]   # factors in grid_len
     # directories = [DIR1, DIR3]
 
+    # TxMultiGran.TX_GRID_LEN = 40
+    # txfiles = sorted(glob.glob(DIR3 + '/*'))
+    # txs = []
+    # factors = [0.25, 0.5]   # factors in grid_len
+    # directories = [DIR1, DIR2]
+
     TxMultiGran.TX_GRID_LEN = 40
     txfiles = sorted(glob.glob(DIR3 + '/*'))
     txs = []
-    factors = [0.25, 0.5]   # factors in grid_len
-    directories = [DIR1, DIR2]
+    factors = [0.125, 0.25, 0.5]   # factors in grid_len
+    directories = [DIR0, DIR1, DIR2]
 
     target_grid_len = 40
     for txfile in txfiles:

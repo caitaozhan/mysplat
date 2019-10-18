@@ -263,3 +263,11 @@ def compute_weighted_error(pred, true):
         (float, float, float) -- mean absolute error, median absolute error, root mean square error
     '''
     return customized_error(pred, true)
+
+
+def read_clean_itwom(txfile):
+    '''Read all pathloss
+    '''
+    fspl, itwom = read_data(txfile)
+    clean_itwom(itwom, fspl)
+    return itwom
