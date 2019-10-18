@@ -78,15 +78,15 @@ class Output:
                        std_far = None
                        ):
         self.method = method
-        self.mean_error = mean_error
-        self.mean_absolute_error = mean_absolute_error
-        self.mean_error_close = mean_error_close
-        self.mean_absolute_error_close = mean_absolute_error_close
-        self.mean_error_far = mean_error_far
-        self.mean_absolute_error_far = mean_absolute_error_far
-        self.std = std
-        self.std_close = std_close
-        self.std_far = std_far
+        self.mean_error = round(mean_error, 3)
+        self.mean_absolute_error = round(mean_absolute_error, 3)
+        self.mean_error_close = round(mean_error_close, 3)
+        self.mean_absolute_error_close = round(mean_absolute_error_close, 3)
+        self.mean_error_far = round(mean_error_far, 3)
+        self.mean_absolute_error_far = round(mean_absolute_error_far, 3)
+        self.std = round(std, 3)
+        self.std_close = round(std_close, 3)
+        self.std_far = round(std_far, 3)
 
 
     def to_json_str(self):

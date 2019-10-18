@@ -1,0 +1,9 @@
+{"dir_full": "output7", "full_grid_len": 10, "coarse_gran": 4, "inter_methods": ["idw"], "dist_close": 3, "dist_far": 7}
+{"method": "idw", "mean_error": -1.8497393057787423, "mean_absolute_error": 2.5341615903037424, "mean_error_close": -5.997274804843269, "mean_absolute_error_close": 6.2347026682854265, "mean_error_far": -0.79787691507299, "mean_absolute_error_far": 1.7132722351127665, "std": 2.907738770358439, "std_close": 3.907199521875514, "std_far": 1.7249070073502537}
+
+{"dir_full": "output8", "full_grid_len": 40, "coarse_gran": 12, "inter_methods": ["idw"], "dist_close": 8, "dist_far": 32}
+{"method": "idw", "mean_error": -0.1379215231295343, "mean_absolute_error": 0.924067369145456, "mean_error_close": -0.5440624604850725, "mean_absolute_error_close": 1.8333346664229815, "mean_error_far": -0.12766721321168978, "mean_absolute_error_far": 1.2060305737146304, "std": 1.207369665068911, "std_close": 2.017496817380084, "std_far": 1.280291176826286}
+
+{"dir_full": "output8", "full_grid_len": 40, "coarse_gran": 12, "inter_methods": ["idw"], "dist_close": 4, "dist_far": 32}
+{"method": "idw", "mean_error": -0.1379215231295343, "mean_absolute_error": 0.924067369145456, "mean_error_close": -0.25103645210772074, "mean_absolute_error_close": 3.0069473101723228, "mean_error_far": -0.12766721321168978, "mean_absolute_error_far": 1.2060305737146304, "std": 1.207369665068911, "std_close": 2.507717099612001, "std_far": 1.280291176826286}
+

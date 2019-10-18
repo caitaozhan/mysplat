@@ -8,12 +8,12 @@ from collections import defaultdict
 from utility import distance, indexconvert, read_data, clean_itwom, is_in_coarse_grid, hypo_in_coarse_grid, read_clean_itwom
 from utility import get_tx_index, read_all_data, compute_error, compute_weighted_error, clean_all_itwom
 from utility import write_all_itwom, read_all_itwom, customized_error
-
+import argparse
 from input_output import Input, Output
 
 class IpsnInterpolate:
     DIR_FULL = 'output8'   # data for full training 1600 x 1600
-    NEIGHBOR_NUM = 4
+    NEIGHBOR_NUM = 3
     IDW_EXPONENT = 1
 
     def __init__(self, dir_full='output8', full_grid_len=40):
@@ -92,12 +92,14 @@ class IpsnInterpolate:
         Return:
             np.2darray -- the zeros are filled
         '''
+        full_data = []
         for tx_1dindex in range(len(coarse_data)):
             print(tx_1dindex, end='  ')
             tx_data = coarse_data[tx_1dindex]
             if tx_data[tx_1dindex] == 0:
                 tx_data[tx_1dindex] = self.same_tx_rx_pathloss  # ensure there is a sensor at the place of the tx
-            coarse_data[tx_1dindex] = self._idw(tx_data)
+            full_data.append(self._idw(tx_data))
+        return full_data
 
 
     def _idw(self, tx_data):
@@ -108,10 +110,11 @@ class IpsnInterpolate:
             tx_data -- np.1darray  -- the zero values are filled up
         '''
         grid_pathloss = tx_data.reshape(self.full_grid_len, self.full_grid_len)
+        grid_interpolate = np.copy(grid_pathloss)
         # find the zero elements and impute them
         for x in range(grid_pathloss.shape[0]):
             for y in range(grid_pathloss.shape[1]):
-                if grid_pathloss[x][y] != 0.0:
+                if grid_pathloss[x][y] != 0.0:  # skip the ones that don't need to interpolate
                     continue
                 points = []
                 d = self.range
@@ -119,7 +122,7 @@ class IpsnInterpolate:
                     for j in range(y - d, y + d + 1):
                         if i < 0 or i >= grid_pathloss.shape[0] or j < 0 or j >= grid_pathloss.shape[1]:
                             continue
-                        if grid_pathloss[i][j] == 0.0:
+                        if grid_pathloss[i][j] == 0.0:  # only use the known point to interpolate
                             continue
                         dist = distance((x, y), (i, j))
                         points.append( (i, j, dist) )
@@ -135,8 +138,8 @@ class IpsnInterpolate:
                     w = weights[i]
                     rss = grid_pathloss[points[i][0]][points[i][1]]
                     idw_pathloss += w * rss
-                grid_pathloss[x][y] = idw_pathloss
-        return grid_pathloss.reshape(self.full_grid_len * self.full_grid_len)
+                grid_interpolate[x][y] = idw_pathloss
+        return grid_interpolate.reshape(self.full_grid_len * self.full_grid_len)
 
 
     @staticmethod
@@ -181,7 +184,7 @@ class IpsnInterpolate:
             tx = (i//self.full_grid_len, i%self.full_grid_len)
             for j in range(size):
                 rx = (j//self.full_grid_len, j%self.full_grid_len)
-                if grid_is_inter[rx[0]][rx[1]] == 1.:
+                if grid_is_inter[rx[0]][rx[1]] == 1. or i == j:
                     continue
                 error = inter_data[i][j] - self.full_data[i][j]
                 dist = distance(tx, rx)
@@ -193,7 +196,7 @@ class IpsnInterpolate:
         mean_error = np.mean(errors_all)
         mean_absolute_error = np.mean(np.absolute(errors_all))
         mean_error_close = np.mean(errors_close)
-        mean_absolute_error_close = np.mean(errors_close)
+        mean_absolute_error_close = np.mean(np.absolute(errors_close))
         mean_error_far = np.mean(errors_far)
         mean_absolute_error_far = np.mean(np.absolute(errors_far))
         std = np.std(np.absolute(errors_all))
@@ -204,40 +207,79 @@ class IpsnInterpolate:
                       mean_error_far, mean_absolute_error_far, std, std_close, std_far)
 
 
-def main0():
+def main0(error_output_file, localization_output_dir):
+    '''this is for 10 x 10 small grid, debugging usage
+    '''
+    f_error = open(error_output_file, 'a')
+    
     #step 0: arguments
-    dir_full = 'output10'
-    full_grid_len = 20
-    coarse_gran = 6
+    dir_full = 'output7'
+    full_grid_len = 10
+    coarse_gran = 4
     inter_methods = ['idw']
-    interpolate_func=IpsnInterpolate.idw
-    dist_close = 8
-    dist_far = 32
+    dist_close = 3
+    dist_far = 7
     myinput = Input(dir_full, full_grid_len, coarse_gran, inter_methods, dist_close, dist_far)
-    # step 1: interpolate
-    ipsnInter = IpsnInterpolate(dir_full, full_grid_len)
-    inter_data = ipsnInter.interpolate(coarse_gran, interpolate_func)
-    # step 2: compute error
-    myoutput = ipsnInter.compute_errors(inter_data, dist_close, dist_far)
-    myoutput.methods = 'idw'
-    # print('ITWOM:\nmean absolute error     = {}\nmedian absolute error   = {}\nroot mean squared error = {}'.format(mean, median, root))
-    # step 3: save it to file
+    for method in inter_methods:
+        # step 1: interpolate
+        if method == 'idw':
+            interpolate_func = IpsnInterpolate.idw
+        elif method == 'ildw':
+            interpolate_func = IpsnInterpolate.ildw
+        else:
+            raise Exception('method not valid')
+        ipsnInter = IpsnInterpolate(dir_full, full_grid_len)
+        inter_data = ipsnInter.interpolate(coarse_gran, interpolate_func)
+        # step 2: compute error
+        myoutput = ipsnInter.compute_errors(inter_data, dist_close, dist_far)
+        myoutput.method = method
+        # step 3: save it to file (both error metrics and for the localization input)
+        f_error.write(myinput.log())
+        f_error.write(myoutput.log())
+        f_error.write('\n')
+    f_error.close()
 
-
-def main1():
+def main1(error_output_file, localization_output_dir):
+    '''this is for 40 x 40 small grid, evaluation usage
+    '''
+    f_error = open(error_output_file, 'a')
+    
     #step 0: arguments
     dir_full = 'output8'
     full_grid_len = 40
     coarse_gran = 12
-    interpolate_func=IpsnInterpolate.idw
-    # step 1: interpolate
-    ipsnInter = IpsnInterpolate(dir_full, full_grid_len)
-    inter_data = ipsnInter.interpolate(coarse_gran, interpolate_func)
-    # step 2: compute error
-    dist_th = 5
-    mean, median, root = customized_error(inter_data, dist_th, coarse_gran)
-    # print('ITWOM:\nmean absolute error     = {}\nmedian absolute error   = {}\nroot mean squared error = {}'.format(mean, median, root))
-    # step 3: save it to file
+    inter_methods = ['idw']
+    dist_close = 4
+    dist_far = 32
+    myinput = Input(dir_full, full_grid_len, coarse_gran, inter_methods, dist_close, dist_far)
+    for method in inter_methods:
+        # step 1: interpolate
+        if method == 'idw':
+            interpolate_func = IpsnInterpolate.idw
+        elif method == 'ildw':
+            interpolate_func = IpsnInterpolate.ildw
+        else:
+            raise Exception('method not valid')
+        ipsnInter = IpsnInterpolate(dir_full, full_grid_len)
+        inter_data = ipsnInter.interpolate(coarse_gran, interpolate_func)
+        # step 2: compute error
+        myoutput = ipsnInter.compute_errors(inter_data, dist_close, dist_far)
+        myoutput.method = method
+        # step 3: save it to file (both error metrics and for the localization input)
+        f_error.write(myinput.log())
+        f_error.write(myoutput.log())
+        f_error.write('\n')
+    f_error.close()
 
 if __name__ == '__main__':
-    main0()
+
+    parser = argparse.ArgumentParser(description='Interpolation for IPSN')
+    parser.add_argument('-eo', '--error_output_file', type=str, nargs=1, default=['ipsn/error'])
+    parser.add_argument('-lo', '--localization_output_directory', type=str, nargs=1, default=['ipsn/12'])
+    args = parser.parse_args()
+
+    error_output_file = args.error_output_file[0]
+    localization_output_dir = args.localization_output_directory[0]
+    # main0(error_output_file, localization_output_dir)
+    main1(error_output_file, localization_output_dir)
+
