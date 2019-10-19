@@ -303,7 +303,7 @@ class IpsnInterpolate:
                 f.write('{} {} {} {}\n'.format(sen_x, sen_y, 1, 1))  # uniform cost
 
         # step 3: hypothesis
-        with open(output_dir + '/hypotheses', 'w') as f:
+        with open(output_dir + '/hypothesis', 'w') as f:
             for tx_1dindex in range(len(inter_data)):
                 t_x = tx_1dindex // self.full_grid_len
                 t_y = tx_1dindex % self.full_grid_len
