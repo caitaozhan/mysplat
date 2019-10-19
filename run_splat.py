@@ -394,7 +394,7 @@ class RunSplat:
                         cov[i, j] = stds[i] ** 2
                     f.write('{} '.format(cov[i, j]))
                 f.write('\n')
-        
+
         # 3. hypothesis file
         with open(new_dir + '/hypothesis', 'w') as f:
             for hypo in range(self.siteman.grid_len*self.siteman.grid_len):
