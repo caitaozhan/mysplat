@@ -1,0 +1,15 @@
+{"dir_full": "output8", "full_grid_len": 40, "coarse_gran": 12, "inter_methods": ["ildw"], "ildw_dist": 0.5, "dist_close": 8, "dist_far": 32}
+{"method": "ildw", "mean_error": -0.0, "mean_absolute_error": 0.913, "mean_error_close": 0.286, "mean_absolute_error_close": 1.649, "mean_error_far": -0.063, "mean_absolute_error_far": 1.27, "std": 1.228, "std_close": 1.907, "std_far": 1.358}
+
+{"dir_full": "output8", "full_grid_len": 40, "coarse_gran": 12, "inter_methods": ["ildw"], "ildw_dist": 0.6, "dist_close": 8, "dist_far": 32}
+{"method": "ildw", "mean_error": -0.004, "mean_absolute_error": 0.911, "mean_error_close": 0.244, "mean_absolute_error_close": 1.627, "mean_error_far": -0.063, "mean_absolute_error_far": 1.27, "std": 1.221, "std_close": 1.869, "std_far": 1.358}
+
+{"dir_full": "output8", "full_grid_len": 40, "coarse_gran": 12, "inter_methods": ["ildw"], "ildw_dist": 0.7, "dist_close": 8, "dist_far": 32}
+{"method": "ildw", "mean_error": -0.009, "mean_absolute_error": 0.909, "mean_error_close": 0.199, "mean_absolute_error_close": 1.604, "mean_error_far": -0.063, "mean_absolute_error_far": 1.27, "std": 1.214, "std_close": 1.836, "std_far": 1.358}
+
+{"dir_full": "output8", "full_grid_len": 40, "coarse_gran": 12, "inter_methods": ["ildw"], "ildw_dist": 0.8, "dist_close": 8, "dist_far": 32}
+{"method": "ildw", "mean_error": -0.014, "mean_absolute_error": 0.906, "mean_error_close": 0.146, "mean_absolute_error_close": 1.581, "mean_error_far": -0.063, "mean_absolute_error_far": 1.27, "std": 1.209, "std_close": 1.81, "std_far": 1.358}
+
+{"dir_full": "output8", "full_grid_len": 40, "coarse_gran": 12, "inter_methods": ["ildw"], "ildw_dist": 0.9, "dist_close": 8, "dist_far": 32}
+{"method": "ildw", "mean_error": -0.02, "mean_absolute_error": 0.906, "mean_error_close": 0.085, "mean_absolute_error_close": 1.576, "mean_error_far": -0.063, "mean_absolute_error_far": 1.27, "std": 1.205, "std_close": 1.786, "std_far": 1.358}
+
