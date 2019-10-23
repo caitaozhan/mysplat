@@ -4,9 +4,10 @@ X -- various amount of training data
 Y -- interpolation error
 '''
 
+from collections import defaultdict
 import numpy as np
 import tabulate
-from collections import defaultdict
+import shutil
 import matplotlib.pyplot as plt
 from input_output import Input, Output, IOUtility
 
@@ -42,11 +43,12 @@ class PlotResult:
         for metric in metrics:
             table = defaultdict(list)
             for myinput, output_by_method in data:
-                if myinput.coarse_gran == 20:  # skip 20, makes plot look a little worse
+                if myinput.coarse_gran in []:  # skip 20, makes plot look a little worse
                     continue
                 table[myinput.coarse_gran].append({method: output.get_metric(metric) for method, output in output_by_method.items()})
             print_table = [[x] + [reduce_f([(y_by_method[method] if method in y_by_method else None) for y_by_method in list_of_y_by_method]) for method in methods] for x, list_of_y_by_method in sorted(table.items())]
             d[metric] = print_table
+            print_table[-1][1] = print_table[-1][2] = 0
             print('Metric:', metric)
             print(tabulate.tabulate(print_table, headers = ['GRANULARITY'] + methods), '\n')
 
@@ -61,6 +63,7 @@ class PlotResult:
                 table[myinput.coarse_gran].append({method: output.get_metric(metric) for method, output in output_by_method.items()})
             print_table = [[x] + [reduce_f([(y_by_method[method] if method in y_by_method else None) for y_by_method in list_of_y_by_method]) for method in methods] for x, list_of_y_by_method in sorted(table.items())]
             d[metric] = print_table
+            print_table[-1][1] = print_table[-1][2] = 0
             print('Metric:', metric)
             print(tabulate.tabulate(print_table, headers = ['GRANULARITY'] + methods), '\n')
 
@@ -87,8 +90,8 @@ class PlotResult:
         ax0.set_xticks(ind)
         ax0.set_xticklabels(xlabels)
         ax0.tick_params(axis='y', direction='in', length=10, width=3, pad=15)
-        ax0.set_ylim([0, 5])
-        ax0.set_yticks(np.arange(0, 5.1, step=0.5))
+        ax0.set_ylim([-0.05, 7])
+        ax0.set_yticks(np.arange(0, 7.1, step=0.5))
         ax0.legend()
 
         me  = np.array(d['mean_error'])              # me
@@ -114,7 +117,7 @@ class PlotResult:
         plt.figtext(0.76, 0.01, '(b)', weight='bold')
 
         plt.savefig('ipsn/inter_error.png')
-
+        shutil.copy('ipsn/inter_error.png', '/home/caitao/Project/latex/localize/ipsn/figures')
 
 
 def plot_various_training():

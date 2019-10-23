@@ -13,3 +13,6 @@
 {"dir_full": "output8", "full_grid_len": 40, "coarse_gran": 12, "inter_methods": ["ildw"], "ildw_dist": 0.9, "dist_close": 8, "dist_far": 32}
 {"method": "ildw", "mean_error": -0.02, "mean_absolute_error": 0.906, "mean_error_close": 0.085, "mean_absolute_error_close": 1.576, "mean_error_far": -0.063, "mean_absolute_error_far": 1.27, "std": 1.205, "std_close": 1.786, "std_far": 1.358}
 
+{"dir_full": "output8", "full_grid_len": 40, "coarse_gran": 28, "inter_methods": ["ildw"], "ildw_dist": 0.6, "dist_close": 8, "dist_far": 32}
+{"method": "ildw", "mean_error": -0.023, "mean_absolute_error": 0.782, "mean_error_close": 0.066, "mean_absolute_error_close": 1.429, "mean_error_far": -0.1, "mean_absolute_error_far": 1.096, "std": 1.101, "std_close": 1.739, "std_far": 1.23}
+
