@@ -391,7 +391,7 @@ def main1(error_output_file, localization_output_dir, granularity, inter_methods
 
 if __name__ == '__main__':
 
-    hint = 'python ipsn_interpolate.py -gran 12 -inter ildw'
+    hint = 'python ipsn_interpolate.py -gl 40 -gran 28 -inter ildw idw -ildw_dist 0.9 -eo ipsn/error-gran -lo ipsn/inter-28'
 
     parser = argparse.ArgumentParser(description='Interpolation for IPSN | Hint: ' + hint)
     parser.add_argument('-eo', '--error_output_file', type=str, nargs=1, default=['ipsn/error'])
