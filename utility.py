@@ -36,7 +36,8 @@ def is_in_coarse_grid(hypo, grid_len, factor):
 
 
 def hypo_in_coarse_grid(hypo, grid_len, factor):
-    '''Check whether a location in the fine grid is in the coarse grid
+    '''the hypothesis of the full fine grid is ensured to have its counterpart in the coarse grid
+       so find out the one in the coarse grid
     Args:
         hypo -- str
         grid_len -- int -- the grid length of the fine grid
