@@ -18,13 +18,20 @@ class IpsnInterpolate:
     IDW_EXPONENT = 1
     ILDW_DIST    = 0.5
 
-    def __init__(self, dir_full='output8', full_grid_len=40):
+    def __init__(self, dir_full='output8', full_grid_len=40, ton=False, origin_gridlen=10, factor=2):
+        '''
+        Args:
+            ton -- bool -- the case for ton is different
+        '''
         self.full_grid_len       = full_grid_len
         self.full_data           = np.array(0)      # np.2darray -- first dimension iterates the tx location (hypothesis), second dimension is the sensor value for that tx
         self.same_tx_rx_pathloss = 0
         self.range               = 0                # range for neighbor's of interpolation
         self.index               = []
-        self.full_data = self.init_full_data(dir_full)
+        if not ton:
+            self.full_data = self.init_full_data(dir_full)
+        else:
+            self.full_data = self.init_ton_full_data(dir_full, origin_gridlen, factor) # this is a fake full data with zero elements
 
 
     def init_full_data(self, dir_full):
@@ -42,6 +49,53 @@ class IpsnInterpolate:
                 self.full_data.append(itwom)
         self.same_tx_rx_pathloss = self.full_data[0][0]  # 50 meters apart
         return np.array(self.full_data)
+
+
+    def init_ton_full_data(self, origin_data_dir, origin_gridlen, factor):
+        origin_data_10 = self.read_hypothesis(origin_data_dir, origin_gridlen)
+        fake_data_20   = self.impute_zeros(origin_data_10, origin_gridlen=origin_gridlen, factor=factor)
+        self.same_tx_rx_pathloss = -28
+        return fake_data_20
+
+
+    def read_hypothesis(self, origin_data_dir, origin_gridlen):
+        '''read the hypothesis file
+        Args:
+            origin_data_dir -- str -- the directory of the original full data. For the TON case, it is 10x10 and already interpolated once
+            origin_gridlen  -- int -- the grid length of the origin grid
+        '''
+        num_h = origin_gridlen * origin_gridlen   # number of hypothesis (location)
+        origin_rssi = np.zeros((num_h, num_h))
+        hypo_file = os.path.join(origin_data_dir, 'hypothesis')
+        with open(hypo_file, 'r') as f:
+            for line in f:
+                line = line.split(' ')
+                t_x, t_y, s_x, s_y, rssi = int(line[0]), int(line[1]), int(line[2]), int(line[3]), float(line[4])
+                t_idx = t_x * origin_gridlen + t_y
+                s_idx = s_x * origin_gridlen + s_y
+                origin_rssi[t_idx, s_idx] = rssi
+        return origin_rssi
+
+
+    def impute_zeros(self, origin_data, origin_gridlen, factor):
+        '''Inpute zeros so that a smaller granularity data grows to a larger granularity data with zeros
+        Args:
+            origin_data    -- np.ndarray, n=2 -- (_, h) smaller granularity data, first dimension for tx, second dimension for sensors
+            origin_gridlen -- int -- the grid length of the smaller granularity data
+            factor         -- int -- the interpolation factor
+        Return:
+            np.ndarray, n=2, shape is (_, h*f^2)
+        '''
+        coarse_data = []
+        full_gridlen = origin_gridlen * factor
+        for tx_data in origin_data:
+            tx_data = tx_data.reshape((origin_gridlen, origin_gridlen))
+            tx_data_coarse = np.zeros((full_gridlen, full_gridlen))
+            for i in range(origin_gridlen):
+                for j in range(origin_gridlen):
+                    tx_data_coarse[i * factor, j * factor] = tx_data[i, j]
+            coarse_data.append(tx_data_coarse.reshape(full_gridlen * full_gridlen))
+        return np.array(coarse_data)
 
 
     def get_coarse_data(self, coarse_gran):
@@ -86,6 +140,22 @@ class IpsnInterpolate:
             print('Oops!', e)
         else:
             return inter_data
+
+
+    def interpolate_ton(self, coarse_gran, factor):
+        '''The interpolation for TON (transaction on networking is different from the origin one for IPSN
+           The difference is that in the IPSN, we have the real full data from simulation, then we zero out some values
+           In TON, we don't have the real full data, i.e. we have a small 10x10 data and interpolate to a larger 20x20
+           This requires a two pass interpolation that assumes symmetry
+        '''
+        print('TON interpolating...')
+        pass_one_data = self.full_data   # the full data here is the fake full data, actually the coarse data
+        self.range = int(math.sqrt(len(self.full_data[0])) / coarse_gran * 2)
+        pass_one_data = self.ildw_ton1(pass_one_data, origin_gridlen=coarse_gran, factor=factor)
+        pass_one_data_copy = np.copy(pass_one_data)
+        pass_one_data = np.transpose(np.array(pass_one_data))
+        pass_two_data = self.ildw_ton2(pass_one_data, pass_one_data_copy, full_gridlen=coarse_gran*factor, factor=factor)
+        return np.array(pass_two_data)
 
 
     def idw(self, coarse_data):
@@ -146,7 +216,7 @@ class IpsnInterpolate:
 
 
     def ildw(self, coarse_data):
-        '''Inverse distance weighting interpolation
+        '''Inverse log distance weighting interpolation
         Args:
             sensor_data -- np.2darray -- the size is full x full, there are zero values in there that need to interpolate.
         Return:
@@ -155,11 +225,54 @@ class IpsnInterpolate:
         full_data = []
         for tx_1dindex in range(len(coarse_data)):
             print(tx_1dindex, end='  ', flush=True)
-            tx_data = coarse_data[tx_1dindex]
+            tx_data = coarse_data[tx_1dindex]                   # note that the index in low granularity and high granularity is different
             if tx_data[tx_1dindex] == 0:
                 tx_data[tx_1dindex] = self.same_tx_rx_pathloss  # ensure there is a sensor at the place of the tx
             full_data.append(self._ildw(tx_data, tx_1dindex))
         return full_data
+
+
+    def ildw_ton1(self, coarse_data, origin_gridlen, factor):
+        '''Inverse log distance weighting interpolation. first pass of the interpolation
+        Args:
+            coarse_data -- np.array -- shape is (100, 400)
+        Return:
+            np.2darray -- the zeros are filled
+        '''
+        print('interpolation pass one')
+        full_gridlen = origin_gridlen * factor
+        full_data = []
+        for tx_1dindex in range(len(coarse_data)):
+            print(tx_1dindex, end='  ', flush=True)
+            tx_data = coarse_data[tx_1dindex]                   # note that the index in low granularity and high granularity is different
+            tx_2dindex = (tx_1dindex // origin_gridlen, tx_1dindex % origin_gridlen)
+            tx_2dindex_full = (tx_2dindex[0] * factor, tx_2dindex[1] * factor)
+            tx_1dindex_full = tx_2dindex_full[0] * full_gridlen + tx_2dindex_full[1]
+            full_data.append(self._ildw(tx_data, tx_1dindex_full))
+        return full_data
+
+
+    def ildw_ton2(self, pass_one_data, pass_one_data_copy, full_gridlen, factor):
+        '''Inverse log distance weighting interpolation. second pass of the interpolation
+        Args:
+            pass_one_data      -- np.array -- shape is (400, 100)
+            pass_one_data_copy -- np.array -- shape is (100, 400)
+        Return:
+            np.2darray -- the zeros are filled
+        '''
+        print('interpolation pass two')
+        pass_two_data = []
+        pass_one_data = self.impute_zeros(pass_one_data, full_gridlen//factor, factor)
+        for i in range(len(pass_one_data)):
+            print(i, end='  ', flush=True)
+            if is_in_coarse_grid(i, full_gridlen, factor):
+                coarse_hypo = hypo_in_coarse_grid(i, full_gridlen, factor)
+                pass_two_data.append(pass_one_data_copy[coarse_hypo])
+            else:
+                tx_data = pass_one_data[i]
+                tx_data[i] = self.same_tx_rx_pathloss
+                pass_two_data.append(self._ildw(tx_data, i))
+        return pass_two_data
 
 
     def _ildw(self, tx_data, tx_1dindex):
@@ -388,6 +501,18 @@ def main1(error_output_file, localization_output_dir, granularity, inter_methods
     f_error.close()
 
 
+def main2(localization_output_dir):
+    '''interpolation for the TON submission
+       make a fake full 20x20 data, let the coarse granularity be 10x10, then the rest should remain unchanged
+    '''
+    origin_data_10 = '10.6.inter-ildw'
+    origin_gridlen = 10
+    full_grid_len = 20
+    factor = 2
+    ipsnInter = IpsnInterpolate(origin_data_10, full_grid_len, ton=True, origin_gridlen=origin_gridlen, factor=factor)
+    inter_data = ipsnInter.interpolate_ton(coarse_gran=origin_gridlen, factor=factor)
+    ipsnInter.save_for_localization(inter_data, localization_output_dir)
+
 
 if __name__ == '__main__':
 
@@ -412,6 +537,8 @@ if __name__ == '__main__':
     if grid_len == 10:
         main0(error_output_file, localization_output_dir, granularity, inter_methods)
     elif grid_len == 40:
-        main1(error_output_file, localization_output_dir, granularity,inter_methods)
+        main1(error_output_file, localization_output_dir, granularity, inter_methods)
+    elif grid_len == 20:
+        main2(localization_output_dir)
     else:
         print('Do not support grid length = {}'.format(grid_len))
