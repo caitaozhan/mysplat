@@ -14,7 +14,7 @@ import subprocess
 from collections import defaultdict
 from splat_site import Site
 from site_manager import SiteManager
-from utility import clean_itwom, read_data, read_all_data, write_data
+from utility_ipsn import clean_itwom, read_data, read_all_data, write_data
 
 
 class RunSplat:
@@ -545,6 +545,32 @@ def main2(ref_point):
     runsplat.generate_localization_input(sen_num=100, sensors=new_sensors, myseed=myseed)
 
 
+def main5(ref_point):
+    '''Run the coarse and fine training
+    Args:
+        ref_point -- (float, float) -- the left down origin point
+    '''
+    grid_len  = 10
+    cell_len  = 400
+    tx_height = 30
+    rx_height = 15
+    myseed = 0
+
+    siteman = SiteManager(grid_len, tx_height, rx_height)
+    setattr(siteman, 'ref_point', ref_point)
+    setattr(siteman, 'cell_len', cell_len)
+    siteman.generate_sites(ref_point, cell_len)
+    siteman.create_input_files(RunSplat.INPUT_DIR)
+
+    runsplat = RunSplat(siteman)
+    # runsplat.generate_terrain_files()  # only need to run for the first time
+    runsplat.call_splat_parallel(num_cores=11)
+    runsplat.rerun_timeout(num_cores=11)
+    runsplat.preprocess_output()
+    sensors = runsplat.generate_localization_input(sen_num=100, sensors=None, myseed=myseed)
+
+    
+
 def main3():
     '''fix tx
     '''
@@ -613,7 +639,7 @@ def main4(ref_point):
 
 if __name__ == '__main__':
 
-    main1()
+    # main1()
 
     # ref_point = (40.762368, -73.120860)    # LI south shore
     # ref_point = (40.830982, -73.226817)   # LI north shore
@@ -622,3 +648,7 @@ if __name__ == '__main__':
     # main3()    
 
     # main4(ref_point)
+
+    ref_point = (40.762368, -73.120860)    # LI south shore
+    # ref_point = (40.830982, -73.226817)   # LI north shore
+    main5(ref_point)

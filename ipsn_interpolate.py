@@ -6,9 +6,9 @@ import math
 import glob
 import numpy as np
 from collections import defaultdict
-from utility import distance, indexconvert, read_data, clean_itwom, is_in_coarse_grid, hypo_in_coarse_grid, read_clean_itwom
-from utility import get_tx_index, read_all_data, compute_error, compute_weighted_error, clean_all_itwom
-from utility import write_all_itwom, read_all_itwom, customized_error
+from utility_ipsn import distance, indexconvert, read_data, clean_itwom, is_in_coarse_grid, hypo_in_coarse_grid, read_clean_itwom
+from utility_ipsn import get_tx_index, read_all_data, compute_error, compute_weighted_error, clean_all_itwom
+from utility_ipsn import write_all_itwom, read_all_itwom, customized_error
 import argparse
 from input_output import Input, Output
 

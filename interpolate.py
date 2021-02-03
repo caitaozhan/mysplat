@@ -6,8 +6,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import mean_absolute_error, median_absolute_error, mean_squared_error
-from utility import distance, customized_error, is_in_coarse_grid, hypo_in_coarse_grid
-from utility import read_all_data, read_data, write_all_data, clean_all_itwom, clean_itwom
+from utility_ipsn import distance, customized_error, is_in_coarse_grid, hypo_in_coarse_grid
+from utility_ipsn import read_all_data, read_data, write_all_data, clean_all_itwom, clean_itwom
 
 
 NEIGHBOR_NUM = 4
